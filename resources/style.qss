@@ -1,0 +1,569 @@
+/* النافذة الرئيسية */
+QMainWindow {
+    background-color: #1a1a1a;
+    color: #ffffff;
+}
+
+/* شريط القوائم */
+QMenuBar {
+    background-color: #1a1a1a;
+    color: #ffffff;
+    border-bottom: 1px solid #333333;
+    padding: 4px;
+    min-height: 28px;
+}
+
+QMenuBar::item {
+    background-color: transparent;
+    padding: 6px 12px;
+    margin: 2px;
+    border-radius: 4px;
+    color: #ffffff;
+}
+
+QMenuBar::item:selected {
+    background-color: #054229;
+    color: #ffffff;
+}
+
+QMenuBar::item:pressed {
+    background-color: #054229;
+    color: #ffffff;
+}
+
+/* القوائم المنسدلة */
+QMenu {
+    background-color: #212121;
+    color: #ffffff;
+    border: 1px solid #333333;
+    border-radius: 8px;
+    padding: 6px;
+}
+
+QMenu::item {
+    padding: 8px 32px;
+    border-radius: 4px;
+    color: #ffffff;
+}
+
+QMenu::item:selected {
+    background-color: #054229;
+    color: #ffffff;
+}
+
+/* شريط الأدوات */
+QToolBar {
+    background-color: #1a1a1a;
+    border-bottom: 1px solid #333333;
+    padding: 4px;
+    spacing: 4px;
+}
+
+QToolBar QToolButton {
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 6px;
+    margin: 2px;
+    color: #ffffff;
+}
+
+QToolBar QToolButton:hover {
+    background-color: #054229;
+    border: 1px solid #054229;
+}
+
+QToolBar QToolButton:pressed {
+    background-color: #054229;
+}
+
+/* مربعات الاختيار */
+QComboBox {
+    background-color: #212121;
+    color: #ffffff;
+    border: 1px solid #333333;
+    border-radius: 4px;
+    padding: 6px;
+    min-width: 150px;
+}
+
+QComboBox:hover {
+    border: 1px solid #054229;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 24px;
+}
+
+QComboBox::down-arrow {
+    image: url(resources/icons/down-arrow.png);
+    width: 12px;
+    height: 12px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #212121;
+    color: #ffffff;
+    selection-background-color: #054229;
+    border-radius: 4px;
+}
+
+/* مربع تحديد حجم الخط */
+QSpinBox {
+    background-color: #212121;
+    color: #ffffff;
+    border: 1px solid #333333;
+    border-radius: 4px;
+    padding: 6px;
+    min-width: 70px;
+}
+
+QSpinBox:hover {
+    border: 1px solid #054229;
+}
+
+/* شريط التمرير */
+
+
+QScrollBar:horizontal {
+    background-color: #1a1a1a;
+    height: 12px;
+    margin: 0px;
+    border-radius: 6px;
+}
+
+QScrollBar::handle:horizontal {
+    background-color: #424242;
+    border-radius: 6px;
+    min-width: 24px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background-color: #054229;
+}
+
+/* مربع الحوار */
+QDialog {
+    background-color: #1a1a1a;
+    color: #ffffff;
+    border-radius: 8px;
+}
+
+/* الأزرار */
+QPushButton, QToolButton, QDialogButtonBox QPushButton {
+    background-color: #054229;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    min-width: 90px;
+    font-weight: bold;
+}
+
+QPushButton:hover, QToolButton:hover, QDialogButtonBox QPushButton:hover {
+    background-color: #065435;
+}
+
+QPushButton:pressed, QToolButton:pressed, QDialogButtonBox QPushButton:pressed {
+    background-color: #043821;
+}
+
+/* رسائل التنبيه */
+QMessageBox {
+    background-color: #1a1a1a;
+    color: #ffffff;
+}
+
+QMessageBox QPushButton {
+    min-width: 120px;
+}
+
+/* شريط الحالة */
+QStatusBar {
+    background-color: #1a1a1a;
+    color: #ffffff;
+    border-top: 1px solid #333333;
+    padding: 4px;
+}
+
+/* التلميحات */
+QToolTip {
+    background-color: #212121;
+    color: #ffffff;
+    border: 1px solid #333333;
+    border-radius: 4px;
+    padding: 6px;
+}
+
+/* مربع البحث */
+QLineEdit {
+    background-color: #212121;
+    color: #ffffff;
+    border: 1px solid #333333;
+    border-radius: 4px;
+    padding: 8px;
+}
+
+QLineEdit:focus {
+    border: 1px solid #054229;
+}
+
+/* مربع التحديد */
+QCheckBox {
+    color: #ffffff;
+    spacing: 8px;
+}
+
+QCheckBox::indicator {
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    border: 1px solid #333333;
+}
+
+QCheckBox::indicator:unchecked {
+    background-color: #212121;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #054229;
+}
+
+QCheckBox::indicator:hover {
+    border: 1px solid #054229;
+}
+
+/* نافذة اختيار الخط */
+QFontDialog {
+    background-color: #1a1a1a;
+    color: #ffffff;
+}
+
+QFontDialog * {
+    color: #ffffff;
+}
+
+QFontDialog QLabel {
+    color: #ffffff;
+}
+
+QFontDialog QGroupBox {
+    color: #ffffff;
+    border: 1px solid #333333;
+}
+
+/* معالجة قسم المعاينة (Sample) */
+QFontDialog QTextEdit {
+    background-color: #212121;
+    color: #ffffff;
+    border: 1px solid #333333;
+}
+
+/* معالجة قسم التأثيرات (Effects) */
+QFontDialog QGroupBox QCheckBox {
+    color: #ffffff;
+}
+
+QFontDialog QGroupBox QComboBox {
+    background-color: #212121;
+    color: #ffffff;
+    border: 1px solid #333333;
+}
+
+/* معالجة جميع العناصر داخل نافذة اختيار الخط */
+QFontDialog QPushButton {
+    background-color: #054229;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+}
+
+QFontDialog QPushButton:hover {
+    background-color: #065435;
+}
+
+QFontDialog QPushButton:pressed {
+    background-color: #043821;
+}
+
+QFontDialog QScrollBar:vertical {
+    background-color: #1a1a1a;
+    width: 12px;
+    margin: 0px;
+    border-radius: 6px;
+}
+
+QFontDialog QScrollBar::handle:vertical {
+    background-color: #424242;
+    border-radius: 6px;
+    min-height: 24px;
+}
+
+QFontDialog QScrollBar::handle:vertical:hover {
+    background-color: #054229;
+}
+
+/* تحديث كل النصوص المتبقية */
+QFontDialog QWidget {
+    color: #ffffff;
+}
+
+/* تحديث لون النص في جميع القوائم المنسدلة */
+QComboBox QAbstractItemView {
+    background-color: #212121;
+    color: #ffffff;
+    selection-background-color: #054229;
+    selection-color: #ffffff;
+}
+
+/* تحديث لون النص في مربعات القائمة */
+QListView {
+    background-color: #212121;
+    color: #ffffff;
+    border: 1px solid #333333;
+    selection-background-color: #054229;
+    selection-color: #ffffff;
+}
+
+/* تحديث لون النص في مربعات النص */
+QTextEdit, QPlainTextEdit {
+    background-color: #212121;
+    color: #ffffff;
+    selection-background-color: #054229;
+    selection-color: #ffffff;
+}
+
+/* تحديث لون النص في العناوين */
+QLabel {
+    color: #ffffff;
+}
+
+/* تحديث لون النص في مربعات التحرير */
+QLineEdit {
+    color: #ffffff;
+    background-color: #212121;
+    selection-background-color: #054229;
+    selection-color: #ffffff;
+}
+
+/* تحديث لون النص في القوائم المنسدلة */
+QComboBox {
+    color: #ffffff;
+}
+
+/* تحديث لون النص في مربعات الاختيار */
+QCheckBox {
+    color: #ffffff;
+}
+
+/* تحديث لون النص في الأزرار الراديو */
+QRadioButton {
+    color: #ffffff;
+}
+
+/* تحديث لون النص في شريط الحالة */
+QStatusBar {
+    color: #ffffff;
+}
+
+/* تحديث لون النص في مربعات الرسائل */
+QMessageBox {
+    color: #ffffff;
+}
+
+QMessageBox QLabel {
+    color: #ffffff;
+}
+
+/* تحديث لون النص في نوافذ الحوار */
+QDialog QLabel {
+    color: #ffffff;
+}
+
+/* تحديث لون النص في مربعات العدد */
+QSpinBox {
+    color: #ffffff;
+}
+
+/* تحديث لون النص في شريط التقدم */
+QProgressBar {
+    color: #ffffff;
+}
+
+/* تحديث لون النص في الجداول */
+QTableView {
+    color: #ffffff;
+    gridline-color: #333333;
+}
+
+QHeaderView::section {
+    background-color: #212121;
+    color: #ffffff;
+    border: 1px solid #333333;
+}
+
+/* تحديث لون النص في شجرة العرض */
+QTreeView {
+    color: #ffffff;
+}
+
+QTreeView::item:selected {
+    background-color: #054229;
+}
+
+/* تحديث لون النص في مربع البحث */
+QLineEdit {
+    color: #ffffff;
+}
+
+/* تحديث لون النص في التويبات */
+QTabWidget::pane {
+    border: 1px solid #333333;
+    background: #1a1a1a;
+}
+
+QTabWidget::tab-bar {
+    alignment: left;
+}
+
+QTabBar::tab {
+    background: #2d2d2d;
+    color: #ffffff;
+    padding: 8px 15px;
+    border: 1px solid #333333;
+    border-bottom: none;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    margin-right: 2px;
+}
+
+QTabBar::tab:selected {
+    background: #1e1e1e;
+    border-bottom: 2px solid #054229;
+}
+
+QTabBar::tab:hover {
+    background: #3d3d3d;
+}
+
+QTabBar::close-button {
+    image: url(resources/icons/close.png);
+    subcontrol-position: right;
+}
+
+QTabBar::close-button:hover {
+    background: #054229;
+    border-radius: 2px;
+}
+
+/* تحديث لون النص في القوائم */
+QMenu::item {
+    color: #ffffff;
+}
+
+/* منطقة أرقام الأسطر */
+QWidget[class="LineNumberArea"] {
+    background-color: #1e1e1e;
+    border-right: 1px solid #333333;
+    padding: 0;
+    margin: 0;
+}
+
+/* المحرر الرئيسي */
+QTextEdit {
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    border: none;
+    selection-background-color: #264f78;
+    selection-color: #ffffff;
+}
+
+QTextEdit {
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    border: 1px solid #333333;
+    border-radius: 8px;
+    padding: 12px;
+    selection-background-color: #264f78;
+    selection-color: #ffffff;
+}
+
+/* شريط التمرير العمودي */
+
+QScrollBar:vertical {
+    background: #1e1e1e;
+    width: 14px;
+    margin: 0px;
+    border-radius: 6px;
+}
+
+QScrollBar::handle:vertical {
+    background: #424242;
+    min-height: 20px;
+    border-radius: 7px;
+    margin: 2px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #525252;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: none;
+}
+
+/* شريط التمرير الأفقي */
+QScrollBar:horizontal {
+    background: #1e1e1e;
+    height: 14px;
+    margin: 0px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #424242;
+    min-width: 20px;
+    border-radius: 7px;
+    margin: 2px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #525252;
+}
+
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    width: 0px;
+}
+
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+    background: none;
+}
+
+/* الحاوية */
+QWidget {
+    background-color: #1e1e1e;
+}
+
+/* تنسيق خاص لأزرار البحث والاستبدال */
+QDialog QPushButton {
+    background-color: #054229;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    min-width: 90px;
+    font-weight: bold;
+}
+
+QDialog QPushButton:hover {
+    background-color: #065435;
+}
+
+QDialog QPushButton:pressed {
+    background-color: #043821;
+}

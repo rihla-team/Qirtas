@@ -1,0 +1,17 @@
+{
+    "font": {
+        "family": "Cambria",
+        "size": 28,
+        "bold": false,
+        "italic": false,
+        "underline": false
+    },
+    "editor": {
+        "theme": "dark",
+        "auto_correct": false,
+        "line_numbers": true,
+        "auto_save": {
+            "enabled": true
+        }
+    }
+}
