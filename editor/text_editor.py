@@ -1,34 +1,35 @@
-from PyQt5.QtWidgets import (QMainWindow, QTextEdit, QVBoxLayout, 
+from PyQt5.QtWidgets import (QMainWindow, QVBoxLayout, 
                            QWidget, QFileDialog, QMessageBox, QAction,
-                           QStatusBar, QLabel, QInputDialog, QFontDialog)
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QFont, QTextOption, QKeySequence, QTextCursor,QTextCharFormat
+                           QStatusBar,QFontDialog, QMenu, QSplitter, QHBoxLayout, QPushButton, QLabel)  
+import os
+from PyQt5.QtCore import Qt, pyqtSignal
 from .menu_bar import ArabicMenuBar
 from utils.theme_manager import ThemeManager
 from utils.printer import DocumentPrinter
-from .search_dialog import SearchDialog, ReplaceDialog
 from utils.pdf_exporter import PDFExporter
 from utils.arabic_corrections import ArabicCorrector
 from utils.tashkeel import ArabicDiacritics
 from utils.setup_shortcuts import ShortcutManager
 from utils.text_tools import TextTools
 from utils.formatting import TextFormatter
-from PyQt5.QtCore import QSettings
-import os
 from .settings_manager import SettingsManager
 from .tab_manager import TabManager
 from utils.auto_save import AutoSaver
 from .text_widget import ArabicTextEdit
 from utils.statistics_manager import StatisticsManager
 from .search_dialog import SearchManager
+from .terminal_widget import  TerminalTabWidget
 class ArabicEditor(QMainWindow):
+    # تعريف الإشارات في بداية الكلاس
+    file_opened = pyqtSignal(str, object)
+    file_dropped = pyqtSignal(str, object)
+    
     def __init__(self):
         super().__init__()
         self.settings_manager = SettingsManager()
         
         # تحميل الخط مرة واحدة عند البداية
         self.default_font = self.settings_manager.get_font()
-        print(f"تم تحميل الخط الافتراضي: {self.default_font.family()}, {self.default_font.pointSize()}")
         
         # إنشاء tab_manager
         self.tab_manager = TabManager(self)
@@ -70,23 +71,81 @@ class ArabicEditor(QMainWindow):
         self.setWindowTitle('محرر النصوص العربي')
         self.setGeometry(100, 100, 800, 600)
         
-        # إنشاء مدير التبويب
-        self.tab_manager = TabManager(self)
+        # إنشاء الحاوية المركزية
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        
+        # إنشاء التخطيط الرئيسي
+        main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
         
         # إضافة شريط القوائم
         self.menu_bar = ArabicMenuBar(self)
         self.setMenuBar(self.menu_bar)
         
-        # إعداد الواجهة الرئيسية
-        central_widget = QWidget()
-        layout = QVBoxLayout()
-        layout.addWidget(self.tab_manager)
-        central_widget.setLayout(layout)
-        self.setCentralWidget(central_widget)
+        # إنشاء مقسم عمودي للمحرر والتيرمنال
+        self.main_splitter = QSplitter(Qt.Vertical)
+        main_layout.addWidget(self.main_splitter)
+        
+        # إضافة مدير التبويبات إلى المقسم
+        self.tab_manager = TabManager(self)
+        self.main_splitter.addWidget(self.tab_manager)
+        
+        # إنشاء حاوية التيرمنال (مخفية في البداية)
+        self.terminal_container = QWidget()
+        self.terminal_container.setVisible(False)
+        self.terminal_layout = QVBoxLayout(self.terminal_container)
+        self.terminal_layout.setContentsMargins(0, 0, 0, 0)
+        self.terminal_layout.setSpacing(0)
+        
+        # إضافة شريط عنوان التيرمنال
+        terminal_header = QWidget()
+        terminal_header.setStyleSheet("background-color: #2D2D2D;")
+        header_layout = QHBoxLayout(terminal_header)
+        header_layout.setContentsMargins(5, 2, 5, 2)
+        
+        # إضافة عنوان التيرمنال
+        terminal_title = QLabel("التيرمنال")
+        terminal_title.setStyleSheet("color: #ffffff;")
+        header_layout.addWidget(terminal_title)
+        
+        # إضافة أزرار التحكم
+        controls_layout = QHBoxLayout()
+        split_btn = QPushButton("تقسيم")
+        split_btn.clicked.connect(self.split_terminal)
+        minimize_btn = QPushButton("_")
+        minimize_btn.clicked.connect(lambda: self.toggle_terminal(False))
+        close_btn = QPushButton("×")
+        close_btn.clicked.connect(lambda: self.toggle_terminal(False))
+        
+        for btn in [split_btn, minimize_btn, close_btn]:
+            btn.setStyleSheet("""
+                QPushButton {
+                    background: transparent;
+                    border: none;
+                    color: #ffffff;
+                    padding: 2px 8px;
+                }
+                QPushButton:hover {
+                    background: #404040;
+                }
+            """)
+            controls_layout.addWidget(btn)
+        
+        header_layout.addLayout(controls_layout)
+        self.terminal_layout.addWidget(terminal_header)
+        
+        # إضافة حاوية التيرمنال إلى المقسم
+        self.main_splitter.addWidget(self.terminal_container)
+        
+        # تعيين النسب الافتراضية للمقسم
+        self.main_splitter.setStretchFactor(0, 7)  # المحرر
+        self.main_splitter.setStretchFactor(1, 3)  # التيرمنال
         
         # إضافة شريط الحالة
         self.status_bar = QStatusBar()
-        self.setStatusBar(self.status_bar)
+        main_layout.addWidget(self.status_bar)
         
         # إنشاء مدير الإحصائيات
         self.statistics_manager = StatisticsManager(self.status_bar)
@@ -96,7 +155,7 @@ class ArabicEditor(QMainWindow):
         
         # تحديث الإحصائيات الأولية
         self.update_status()
-
+        
         # إضافة قائمة الأدوات
         tools_menu = self.menuBar().addMenu('أدوات')
         
@@ -146,9 +205,16 @@ class ArabicEditor(QMainWindow):
         arabic_tools.addAction(auto_correct)
         
         # تصدير PDF
-        export_pdf_action = QAction('تصدير PDF', self)
+        export_pdf_action = QAction('تصدير بي دي اف', self)
         export_pdf_action.triggered.connect(self.export_pdf)
         tools_menu.addAction(export_pdf_action)
+        
+        tools_menu = self.menuBar().findChild(QMenu, 'أدوات')
+        if tools_menu:
+            terminal_action = QAction('فتح التيرمنال', self)
+            terminal_action.setShortcut('Ctrl+T')
+            terminal_action.triggered.connect(self.add_terminal)
+            tools_menu.addAction(terminal_action)
         
     def update_status(self):
         """تحديث إحصائيات النص في شريط الحالة"""
@@ -176,22 +242,33 @@ class ArabicEditor(QMainWindow):
     def new_file(self):
         self.tab_manager.new_tab()
 
-    def open_file(self):
+    def open_file(self, file_path):
         """فتح ملف"""
-        file_name, _ = QFileDialog.getOpenFileName(self, "فتح ملف", "", 
-                                                 "كل الملفات (*);;ملفات نصية (*.txt)")
-        if file_name:
-            self.tab_manager.open_file(file_name)
+        if file_path:
+            self.tab_manager.open_file(file_path)
+            self.file_opened.emit(file_path, self.get_current_editor())
 
     def save_file(self):
         """حفظ الملف الحالي"""
-        current_tab_index = self.tab_manager.currentIndex()
-        current_file = self.tab_manager.get_file_path(current_tab_index)
-        
-        if not current_file:
+        current_editor = self.tab_manager.get_current_editor()
+        if not current_editor:
+            return False
+            
+        # التحقق من وجود مسار للملف
+        if hasattr(current_editor, 'file_path') and current_editor.file_path:
+            file_path = current_editor.file_path
+        else:
             return self.save_file_as()
         
-        return self._save_to_file(current_file)
+        try:
+            with open(file_path, 'w', encoding='utf-8') as file:
+                file.write(current_editor.toPlainText())
+            current_editor.document().setModified(False)
+            self.statusBar().showMessage(f"تم الحفظ: {file_path}", 2000)
+            return True
+        except Exception as e:
+            QMessageBox.critical(self, "خطأ", f"حدث خطأ أثناء حفظ الملف: {str(e)}")
+            return False
 
     def save_file_as(self):
         """حفظ الملف باسم جديد"""
@@ -333,22 +410,31 @@ class ArabicEditor(QMainWindow):
             text_edit = self.tab_manager.widget(index).findChild(ArabicTextEdit)
             if text_edit and text_edit.document().isModified():
                 file_name = self.tab_manager.tabText(index)
-                reply = QMessageBox.question(
-                    self,
-                    "حفظ التغييرات",
-                    f"هناك تغييرات غير محفوظة في {file_name}. هل تريد حفظها؟",
-                    QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel
-                )
                 
-                if reply == QMessageBox.Save:
+                # إنشاء مربع حوار مخصص
+                msg_box = QMessageBox()
+                msg_box.setWindowTitle("تنبيه")
+                msg_box.setText(f"هناك تغييرات غير محفوظة في {file_name}. هل تريد حفظها؟")
+                
+                # إضافة الأزرار المعربة
+                save_button = msg_box.addButton("حفظ", QMessageBox.AcceptRole)
+                discard_button = msg_box.addButton("تجاهل", QMessageBox.DestructiveRole)
+                cancel_button = msg_box.addButton("إلغاء", QMessageBox.RejectRole)
+                
+                msg_box.exec_()
+                
+                clicked_button = msg_box.clickedButton()
+                
+                if clicked_button == save_button:
                     # تفعيل التبويب الحالي
                     self.tab_manager.setCurrentIndex(index)
                     if not self.save_file():
                         event.ignore()
                         return
-                elif reply == QMessageBox.Cancel:
+                elif clicked_button == cancel_button:
                     event.ignore()
                     return
+                # في حالة تجاهل، نستمر في الحلقة
         
         event.accept()
 
@@ -394,3 +480,69 @@ class ArabicEditor(QMainWindow):
                 if editor:
                     editor.apply_font_direct(font)
             
+    def add_terminal(self):
+        """إضافة تيرمنال جديد"""
+        # التحقق من وجود تيرمنال مفتوح
+        if hasattr(self, 'terminal_container') and self.terminal_container.isVisible():
+            # إضافة تبويب جديد إذا كان التيرمنال موجوداً
+            if hasattr(self, 'terminal_tabs'):
+                self.terminal_tabs.add_new_terminal()
+            return
+        
+        # إنشاء حاوية التيرمنال إذا لم تكن موجودة
+        if not hasattr(self, 'terminal_container'):
+            self.terminal_container = QWidget()
+            self.terminal_layout = QVBoxLayout(self.terminal_container)
+            self.terminal_layout.setContentsMargins(0, 0, 0, 0)
+            self.terminal_layout.setSpacing(0)
+            self.main_splitter.addWidget(self.terminal_container)
+        
+        # إزالة أي تيرمنالات قديمة
+        for i in reversed(range(self.terminal_layout.count())):
+            widget = self.terminal_layout.itemAt(i).widget()
+            if widget:
+                widget.deleteLater()
+                self.terminal_layout.removeWidget(widget)
+        
+        # إنشاء مدير التبويبات
+        self.terminal_tabs = TerminalTabWidget(self)
+        self.terminal_layout.addWidget(self.terminal_tabs)
+        
+        # إظهار التيرمنال
+        self.toggle_terminal(True)
+        
+        return self.terminal_tabs.get_current_terminal()
+
+    def toggle_terminal(self, show=None):
+        """إظهار/إخفاء التيرمنال"""
+        if not hasattr(self, 'terminal_container'):
+            if show:
+                self.add_terminal()
+            return
+        
+        if show is None:
+            show = not self.terminal_container.isVisible()
+        
+        self.terminal_container.setVisible(show)
+        
+        # إعادة ضبط أحجام المقسم
+        if show:
+            sizes = self.main_splitter.sizes()
+            total = sum(sizes)
+            self.main_splitter.setSizes([int(total * 0.7), int(total * 0.3)])
+        else:
+            self.main_splitter.setSizes([1, 0])
+
+    def split_terminal(self):
+        """تقسيم التيرمنال"""
+        if hasattr(self, 'terminal_tabs'):
+            self.terminal_tabs.add_new_terminal()
+
+    def load_font_settings(self):
+
+        """تحميل إعدادات الخط"""
+        if self.parent and self.parent.get_current_editor():
+            current_editor = self.parent.get_current_editor()
+            font = self.parent.default_font
+        
+        

@@ -1,8 +1,8 @@
 {
     "font": {
-        "family": "Cambria",
-        "size": 28,
-        "bold": false,
+        "family": "Segoe UI Variable Display Semib",
+        "size": 10,
+        "bold": true,
         "italic": false,
         "underline": false
     },
@@ -13,5 +13,14 @@
         "auto_save": {
             "enabled": true
         }
+    },
+    "extensions": {
+        "enabled": {
+            "code_documenter": true
+        },
+        "disabled": [
+            "project_manager",
+            "text_analyzer"
+            ]
     }
 }

@@ -1,6 +1,5 @@
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
-                           QLineEdit, QPushButton, QCheckBox, QInputDialog)
-from PyQt5.QtCore import Qt
+                           QLineEdit, QPushButton, QCheckBox, QInputDialog, QMessageBox)
 from PyQt5.QtGui import QTextDocument
 
 class SearchDialog(QDialog):
@@ -78,6 +77,14 @@ class SearchDialog(QDialog):
             )
             text_edit.setTextCursor(cursor)
             found = text_edit.find(search_text, flags)
+            
+            # إذا لم يتم العثور على النص، نعرض رسالة
+            if not found:
+                QMessageBox.information(
+                    self,
+                    "نتيجة البحث",
+                    "لم يتم العثور على النص المطلوب"
+                )
             
         return found
         

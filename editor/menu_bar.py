@@ -1,7 +1,6 @@
-from PyQt5.QtWidgets import QMenuBar, QMenu, QAction, QFontDialog, QMessageBox
-from PyQt5.QtGui import QKeySequence, QIcon, QFont
-from PyQt5.QtCore import Qt, QSettings
-
+from PyQt5.QtWidgets import QMenuBar,QAction, QFontDialog, QMessageBox
+from PyQt5.QtGui import QKeySequence 
+from editor.terminal_widget import ArabicTerminal
 class ArabicMenuBar(QMenuBar):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -27,7 +26,7 @@ class ArabicMenuBar(QMenuBar):
         save_as_action.triggered.connect(self.parent.save_file_as)
         file_menu.addAction(save_as_action)
         
-        new_action = QAction('مستند جديد', self)
+        new_action = QAction('نافذة جديدة', self)
         new_action.setShortcut(QKeySequence("Ctrl+T"))
         new_action.triggered.connect(self.parent.new_file)
         file_menu.addAction(new_action)
@@ -49,6 +48,10 @@ class ArabicMenuBar(QMenuBar):
             enabled = self.parent.settings_manager.get_setting('editor.auto_save.enabled', False)
             auto_save_action.setChecked(enabled)
             
+        terminal_action = QAction('فتح موجه الاوامر', self)
+        terminal_action.setShortcuts([QKeySequence("Ctrl+ذ"), QKeySequence("Ctrl+`")])
+        terminal_action.triggered.connect(self.parent.add_terminal)
+        settings_menu.addAction(terminal_action)       
         # قائمة تحرير
         edit_menu = self.addMenu('تحرير')
         
@@ -86,6 +89,11 @@ class ArabicMenuBar(QMenuBar):
         select_all_action.triggered.connect(lambda: self.parent.get_current_editor().selectAll() if self.parent.get_current_editor() else None)
         edit_menu.addAction(select_all_action)
         
+        # إضافة فاصل
+        edit_menu.addSeparator()
+        
+
+        
         # قائمة تنسيق
         format_menu = self.addMenu('تنسيق')
         
@@ -112,6 +120,9 @@ class ArabicMenuBar(QMenuBar):
         font_action = QAction('اختيار الخط...', self)
         font_action.triggered.connect(self.show_font_dialog)
         format_menu.addAction(font_action)
+
+        
+
 
     def toggle_auto_save(self, enabled):
         """تفعيل/تعطيل الحفظ التلقائي"""
@@ -153,3 +164,10 @@ class ArabicMenuBar(QMenuBar):
             current_editor = self.parent.get_current_editor()
             font = self.parent.default_font
             current_editor.setFont(font)
+
+    def _show_terminal_search(self):
+        """عرض البحث في التيرمنال"""
+        if hasattr(self.parent, 'terminal_container'):
+            terminal = self.parent.terminal_container.findChild(ArabicTerminal)
+            if terminal:
+                terminal.show_search()

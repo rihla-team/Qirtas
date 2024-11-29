@@ -1,4 +1,4 @@
-from PyQt5.QtGui import QFont, QTextCharFormat
+from PyQt5.QtGui import QFont
 
 class TextFormatter:
     ARABIC_TEMPLATES = {

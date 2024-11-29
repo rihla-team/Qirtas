@@ -1,0 +1,12 @@
+{
+    "name": "محلل النص",
+    "version": "1.0.0",
+    "description": "تحليل متقدم للنص مع إحصائيات وتوصيات",
+    "author": "فريق رحلة",
+    "main": "main.py",
+    "icon": "icon.png",
+    "requirements": [
+        "arabic-reshaper",
+        "python-bidi"
+    ]
+}

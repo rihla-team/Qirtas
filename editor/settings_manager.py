@@ -74,3 +74,28 @@ class SettingsManager:
         }
         self.set_setting('font', font_settings)
         print(f"حفظ الخط: {font.family()}, {font.pointSize()}")
+
+    def update_setting(self, key, value):
+        """تحديث إعداد معين"""
+        try:
+            settings = self.load_settings()
+            # تحديث القيمة في الإعدادات
+            current = settings
+            keys = key.split('.')
+            
+            # الوصول إلى العنصر الأخير في المسار
+            for k in keys[:-1]:
+                if k not in current:
+                    current[k] = {}
+                current = current[k]
+            
+            # تحديث القيمة
+            current[keys[-1]] = value
+            
+            # حفظ الإعدادات
+            self.save_settings(settings)
+            return True
+            
+        except Exception as e:
+            print(f"خطأ في تحديث الإعدادات: {str(e)}")
+            return False

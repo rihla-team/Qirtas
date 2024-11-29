@@ -1,12 +1,13 @@
-from PyQt5.QtWidgets import QTextEdit, QWidget, QHBoxLayout
-from PyQt5.QtGui import QTextOption, QTextCharFormat, QPainter, QColor, QTextFormat, QTextBlockFormat, QTextCursor
-from PyQt5.QtCore import Qt, QTimer, QRect, QSize
-from PyQt5.QtGui import QFont, QPen , QTextDocument
+from PyQt5.QtWidgets import QTextEdit, QWidget, QHBoxLayout, QMenu, QAction
+from PyQt5.QtGui import QTextOption, QTextCharFormat, QColor, QTextFormat, QTextCursor, QKeySequence
+from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QDragEnterEvent, QDropEvent
 
 class ArabicTextEdit(QTextEdit):
     def __init__(self, main_window):
         super().__init__()
         self.main_window = main_window
+        self.file_path = None  # إضافة متغير لتخزين مسار الملف
         self._font_update_in_progress = False
         
         # إنشاء الحاوية
@@ -37,6 +38,9 @@ class ArabicTextEdit(QTextEdit):
         self.update_timer.setSingleShot(True)
         self.update_timer.setInterval(100)
         self.update_timer.timeout.connect(self._handle_text_changed)
+        
+        # تفعيل قبول السحب والإفلات
+        self.setAcceptDrops(True)
 
     def get_container(self):
         """الحصول على الحاوية الرئيسية"""
@@ -108,11 +112,6 @@ class ArabicTextEdit(QTextEdit):
     def _handle_modification_changed(self, modified):
         """معالجة تغيير حالة التعديل"""
         editor_window = self.main_window
-        while not hasattr(editor_window, 'auto_saver') and editor_window.parent():
-            editor_window = editor_window.parent()
-        
-        if not hasattr(editor_window, 'auto_saver'):
-            return
         
         current_index = editor_window.tab_manager.currentIndex()
         current_title = editor_window.tab_manager.tabText(current_index)
@@ -125,8 +124,11 @@ class ArabicTextEdit(QTextEdit):
         if modified:
             current_title += '*'
             # محاولة الحفظ التلقائي
-            if editor_window.auto_saver.enabled:
-                QTimer.singleShot(1000, editor_window.auto_saver.perform_auto_save)
+            if hasattr(editor_window, 'auto_saver') and editor_window.auto_saver.enabled:
+                editor_window.auto_saver.add_file_to_autosave(
+                    editor_window.tab_manager.file_paths[self],
+                    self
+                )
                 
         editor_window.tab_manager.setTabText(current_index, current_title)
         
@@ -262,5 +264,187 @@ class ArabicTextEdit(QTextEdit):
             # إعادة تفعيل الإشارات
             self.document().blockSignals(False)
             self.blockSignals(False)
+
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        """معالجة بداية عملية السحب"""
+        mime_data = event.mimeData()
+        
+        # قبول الملفات النصية والنصوص العادية
+        if mime_data.hasUrls() or mime_data.hasText():
+            event.acceptProposedAction()
+            
+    def dragMoveEvent(self, event):
+        """معالجة حركة السحب"""
+        event.acceptProposedAction()
+            
+    def dropEvent(self, event: QDropEvent):
+        """معالجة عملية الإفلات"""
+        mime_data = event.mimeData()
+        
+        # التعامل مع إفلات الملفات
+        if mime_data.hasUrls():
+            for url in mime_data.urls():
+                file_path = url.toLocalFile()
+                if file_path:
+                    # التحقق من نوع الملف
+                    if self._is_text_file(file_path):
+                        # فتح الملف في تبويب جديد
+                        editor = self.main_window.tab_manager.open_file(file_path)
+                        if editor:
+                            # تعيين مسار الملف وإطلاق إشارة file_dropped
+                            editor.file_path = file_path
+                            self.main_window.file_dropped.emit(file_path, editor)
+                    else:
+                        from PyQt5.QtWidgets import QMessageBox
+                        QMessageBox.warning(
+                            self,
+                            "خطأ",
+                            "يمكن فتح الملفات النصية فقط"
+                        )
+                        
+        # التعامل مع إفلات النص
+        elif mime_data.hasText():
+            cursor = self.cursorForPosition(event.pos())
+            cursor.insertText(mime_data.text())
+            
+        event.acceptProposedAction()
+        
+    def _is_text_file(self, file_path):
+        """التحقق مما إذا كان الملف نصياً"""
+        try:
+            # محاولة قراءة الملف كنص
+            with open(file_path, 'r', encoding='utf-8') as f:
+                f.read(1024)  # قراءة جزء صغير للتحقق
+            return True
+        except UnicodeDecodeError:
+            return False
+        except Exception:
+            return False
+
+    def contextMenuEvent(self, event):
+        """إنشاء قائمة السياق عند النقر بزر الماوس الأيمن"""
+        context_menu = QMenu(self)
+        
+        # إضافة الإجراءات الأساسية
+        undo_action = QAction('تراجع', self)
+        undo_action.setShortcut(QKeySequence.Undo)
+        undo_action.triggered.connect(self.undo)
+        undo_action.setEnabled(self.document().isUndoAvailable())
+        context_menu.addAction(undo_action)
+
+        redo_action = QAction('إعادة', self)
+        redo_action.setShortcut(QKeySequence.Redo)
+        redo_action.triggered.connect(self.redo)
+        redo_action.setEnabled(self.document().isRedoAvailable())
+        context_menu.addAction(redo_action)
+
+        context_menu.addSeparator()
+
+        cut_action = QAction('قص', self)
+        cut_action.setShortcut(QKeySequence.Cut)
+        cut_action.triggered.connect(self.cut)
+        cut_action.setEnabled(self.textCursor().hasSelection())
+        context_menu.addAction(cut_action)
+
+        copy_action = QAction('نسخ', self)
+        copy_action.setShortcut(QKeySequence.Copy)
+        copy_action.triggered.connect(self.copy)
+        copy_action.setEnabled(self.textCursor().hasSelection())
+        context_menu.addAction(copy_action)
+
+        paste_action = QAction('لصق', self)
+        paste_action.setShortcut(QKeySequence.Paste)
+        paste_action.triggered.connect(self.paste)
+        paste_action.setEnabled(self.canPaste())
+        context_menu.addAction(paste_action)
+
+        delete_action = QAction('حذف', self)
+        delete_action.setShortcut(QKeySequence.Delete)
+        delete_action.triggered.connect(lambda: self.textCursor().removeSelectedText())
+        delete_action.setEnabled(self.textCursor().hasSelection())
+        context_menu.addAction(delete_action)
+
+        context_menu.addSeparator()
+
+        select_all_action = QAction('تحديد الكل', self)
+        select_all_action.setShortcut(QKeySequence.SelectAll)
+        select_all_action.triggered.connect(self.selectAll)
+        context_menu.addAction(select_all_action)
+
+        # إضافة قائمة فرعية للتنسيق
+        format_menu = context_menu.addMenu('تنسيق')
+        
+        bold_action = QAction('عريض', self)
+        bold_action.setShortcut(QKeySequence.Bold)
+        bold_action.triggered.connect(lambda: self.main_window.format_text('bold'))
+        format_menu.addAction(bold_action)
+
+        italic_action = QAction('مائل', self)
+        italic_action.setShortcut(QKeySequence.Italic)
+        italic_action.triggered.connect(lambda: self.main_window.format_text('italic'))
+        format_menu.addAction(italic_action)
+
+        underline_action = QAction('تسطير', self)
+        underline_action.setShortcut(QKeySequence.Underline)
+        underline_action.triggered.connect(lambda: self.main_window.format_text('underline'))
+        format_menu.addAction(underline_action)
+
+        # إضافة قائمة فرعية للتشكيل
+        diacritics_menu = context_menu.addMenu('تشكيل')
+        
+        diacritics = [
+            ('َ', 'فتحة'),
+            ('ُ', 'ضمة'),
+            ('ِ', 'كسرة'),
+            ('ْ', 'سكون'),
+            ('ّ', 'شدة'),
+            ('ً', 'تنوين فتح'),
+            ('ٌ', 'تنوين ضم'),
+            ('ٍ', 'تنوين كسر')
+        ]
+
+        for diacritic, name in diacritics:
+            action = QAction(f'{name} ({diacritic})', self)
+            action.triggered.connect(lambda checked, d=diacritic: self.add_diacritic(d))
+            diacritics_menu.addAction(action)
+
+        # إضافة خيار إزالة التشكيل
+        remove_diacritics_action = QAction('إزالة كل التشكيل', self)
+        remove_diacritics_action.triggered.connect(self.remove_all_diacritics)
+        diacritics_menu.addAction(remove_diacritics_action)
+
+        # عرض القائمة
+        context_menu.exec_(event.globalPos())
+
+    def add_diacritic(self, diacritic):
+        """إضافة تشكيل للنص المحدد"""
+        cursor = self.textCursor()
+        if cursor.hasSelection():
+            text = cursor.selectedText()
+            new_text = ""
+            for char in text:
+                if char.isalpha() and '\u0600' <= char <= '\u06FF':  # التحقق من أن الحرف عربي
+                    new_text += char + diacritic
+                else:
+                    new_text += char
+            cursor.insertText(new_text)
+        else:
+            position = cursor.position()
+            cursor.movePosition(cursor.Left)
+            cursor.movePosition(cursor.Right, cursor.KeepAnchor)
+            char = cursor.selectedText()
+            if char.isalpha() and '\u0600' <= char <= '\u06FF':
+                cursor.insertText(char + diacritic)
+            cursor.setPosition(position + 1)
+            self.setTextCursor(cursor)
+
+    def remove_all_diacritics(self):
+        """إزالة جميع التشكيلات من النص المحدد"""
+        cursor = self.textCursor()
+        if cursor.hasSelection():
+            text = cursor.selectedText()
+            from tashaphyne.normalize import strip_tashkeel
+            new_text = strip_tashkeel(text)
+            cursor.insertText(new_text)
 
 

@@ -1,0 +1,8 @@
+{
+    "name": "موثق الكود",
+    "version": "1.0.0",
+    "description": "أداة لتوثيق وشرح الكود بشكل تفاعلي",
+    "author": "فريق قرطاس",
+    "main": "main.py",
+    "icon": "icon.png"
+}

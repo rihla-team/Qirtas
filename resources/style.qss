@@ -567,3 +567,35 @@ QDialog QPushButton:hover {
 QDialog QPushButton:pressed {
     background-color: #043821;
 }
+
+QFontDialog {
+    background-color: #1a1a1a;
+    color: #ffffff;
+}
+
+QFontDialog QComboBox {
+    background-color: #212121;
+    color: #ffffff;
+    border: 1px solid #333333;
+    padding: 5px;
+}
+
+QFontDialog QCheckBox {
+    color: #ffffff;
+}
+
+QFontDialog QLabel {
+    color: #ffffff;
+}
+
+QFontDialog QPushButton {
+    background-color: #054229;
+    color: #ffffff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+}
+
+QFontDialog QPushButton:hover {
+    background-color: #065435;
+}

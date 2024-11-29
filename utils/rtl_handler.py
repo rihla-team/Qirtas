@@ -1,4 +1,3 @@
-from PyQt5.QtCore import Qt
 import arabic_reshaper
 from bidi.algorithm import get_display
 

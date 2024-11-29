@@ -1,4 +1,4 @@
-from tashaphyne.normalize import strip_tashkeel, strip_tatweel # PIP install tashaphyne
+from tashaphyne.normalize import strip_tashkeel
 
 class ArabicDiacritics:
     def __init__(self):
