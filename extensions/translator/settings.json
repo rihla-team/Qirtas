@@ -1,0 +1,8 @@
+{
+    "source_lang": "auto",
+    "target_lang": "ar",
+    "max_threads": 4,
+    "max_chunk_size": 1000,
+    "key_pattern": "",
+    "text_pattern": ""
+}

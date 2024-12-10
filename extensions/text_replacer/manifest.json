@@ -1,0 +1,22 @@
+{
+    "name": "مستبدل نصوص للعبة ملوك صليبية",
+    "id": "ck3_text_replacer",
+    "version": "1.0.0",
+    "description": "مستبدل نصوص للعبة ملوك صليبية بحيث تقوم بفتح الملف المطلوب وتقوم باضافة النص المعدل عن طريق الاداة",
+    "category": "tools",
+    "author": "فريق رحلة",
+    "main": "text_replacer_ck3.py",
+    "icon": "icon.png",
+    "requires": {
+        "deep-translator": ">=1.9.0"
+    },
+    "platform": {
+        "windows": true,
+        "linux": false,
+        "macos": false
+    },
+    "app_version": {
+        "min": "1.0.0",
+        "max": "2.0.0"
+    }
+} 

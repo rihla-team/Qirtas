@@ -687,7 +687,7 @@ class ArabicTerminal(QTextEdit):
                 self.append_text(f"\nخطأ: '{path}' ليس مجلداً\n", self.colors['error'])
             except OSError as e:
                 if e.errno == 2:  # المجلد غير موجود
-                    self.append_text(f"\nخطأ: المجلد '{path}' غي�� موجود\n", self.colors['error'])
+                    self.append_text(f"\nخطأ: المجلد '{path}' غير موجود\n", self.colors['error'])
                 elif e.errno == 3:  # المسار غير موجود
                     self.append_text(f"\nخطأ: المسار '{path}' غير موجود\n", self.colors['error'])
                 elif e.errno == 5:  # رفض الوصول
@@ -1851,5 +1851,5 @@ class TerminalTabWidget(QTabWidget):
             self.save_history()
             print("تم حفظ التاريخ عند الإغلاق")
         except Exception as e:
-            print(f"خطأ في حفظ التاريخ عند الإغلا��: {str(e)}")
+            print(f"خطأ في حفظ التاريخ عند الإغلاق: {str(e)}")
         super().closeEvent(event)

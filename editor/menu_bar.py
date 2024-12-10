@@ -27,63 +27,60 @@ class ArabicMenuBar(QMenuBar):
         file_menu.addAction(save_as_action)
         
         new_action = QAction('نافذة جديدة', self)
-        new_action.setShortcut(QKeySequence("Ctrl+T"))
+        new_action.setShortcut(QKeySequence("Ctrl+N"))
         new_action.triggered.connect(self.parent.new_file)
         file_menu.addAction(new_action)
         
-        # إضافة فاصل
-        file_menu.addSeparator()
-        
-        # إضافة قائمة الإعدادات
-        settings_menu = self.addMenu('إعدادات')
-        
-        # إضافة خيار الحفظ التلقائي
         auto_save_action = QAction('الحفظ التلقائي', self)
         auto_save_action.setCheckable(True)
         auto_save_action.triggered.connect(self.toggle_auto_save)
-        settings_menu.addAction(auto_save_action)
+        file_menu.addAction(auto_save_action)
+        
+        file_menu.addSeparator()
+
+        terminal_action = QAction('فتح موجه الاوامر', self)
+        terminal_action.setShortcuts([QKeySequence("Ctrl+ذ"), QKeySequence("Ctrl+`")])
+        terminal_action.triggered.connect(self.parent.add_terminal)
+        file_menu.addAction(terminal_action)       
+        
+
         
         # تحديث حالة الحفظ التلقائي من الإعدادات
         if hasattr(self.parent, 'settings_manager'):
             enabled = self.parent.settings_manager.get_setting('editor.auto_save.enabled', False)
             auto_save_action.setChecked(enabled)
             
-        terminal_action = QAction('فتح موجه الاوامر', self)
-        terminal_action.setShortcuts([QKeySequence("Ctrl+ذ"), QKeySequence("Ctrl+`")])
-        terminal_action.triggered.connect(self.parent.add_terminal)
-        settings_menu.addAction(terminal_action)       
+
         # قائمة تحرير
         edit_menu = self.addMenu('تحرير')
-        
+
         undo_action = QAction('تراجع', self)
-        undo_action.setShortcut(QKeySequence("Ctrl+Z"))
+        undo_action.setShortcut(QKeySequence.Undo)
         undo_action.triggered.connect(lambda: self.parent.tab_manager.get_current_editor().undo() 
                                     if self.parent.tab_manager.get_current_editor() else None)
         edit_menu.addAction(undo_action)
-        
+
         redo_action = QAction('إعادة', self)
-        redo_action.setShortcut(QKeySequence("Ctrl+Y"))
+        redo_action.setShortcut(QKeySequence.Redo)
         redo_action.triggered.connect(lambda: self.parent.tab_manager.get_current_editor().redo() 
                                     if self.parent.tab_manager.get_current_editor() else None)
         edit_menu.addAction(redo_action)
-        
-        edit_menu.addSeparator()
-        
+
         cut_action = QAction('قص', self)
-        cut_action.setShortcut(QKeySequence("Ctrl+X"))
+        cut_action.setShortcut(QKeySequence.Cut)
         cut_action.triggered.connect(lambda: self.parent.get_current_editor().cut() if self.parent.get_current_editor() else None)
         edit_menu.addAction(cut_action)
-        
+
         copy_action = QAction('نسخ', self)
-        copy_action.setShortcut(QKeySequence("Ctrl+C"))
+        copy_action.setShortcut(QKeySequence.Copy)
         copy_action.triggered.connect(lambda: self.parent.get_current_editor().copy() if self.parent.get_current_editor() else None)
         edit_menu.addAction(copy_action)
-        
+
         paste_action = QAction('لصق', self)
         paste_action.setShortcut(QKeySequence.Paste)
         paste_action.triggered.connect(lambda: self.parent.get_current_editor().paste() if self.parent.get_current_editor() else None)
         edit_menu.addAction(paste_action)
-        
+
         select_all_action = QAction('تحديد الكل', self)
         select_all_action.setShortcut(QKeySequence.SelectAll)
         select_all_action.triggered.connect(lambda: self.parent.get_current_editor().selectAll() if self.parent.get_current_editor() else None)
@@ -115,14 +112,37 @@ class ArabicMenuBar(QMenuBar):
         underline_action.triggered.connect(lambda: self.parent.format_text('underline'))
         format_menu.addAction(underline_action)
         
+        alignment_menu = format_menu.addMenu('محاذاة')
+
+        # محاذاة لليمين
+        right_align = QAction('محاذاة لليمين', self)
+        right_align.setShortcut('Ctrl+Shift+R')
+        right_align.triggered.connect(lambda: self.parent.format_text('align_right'))
+        alignment_menu.addAction(right_align)
+
+        # محاذاة لليسار
+        left_align = QAction('محاذاة لليسار', self)
+        left_align.setShortcut('Ctrl+Shift+L')
+        left_align.triggered.connect(lambda: self.parent.format_text('align_left'))
+        alignment_menu.addAction(left_align)
+
+        # توسيط
+        center_align = QAction('توسيط', self)
+        center_align.setShortcut('Ctrl+Shift+E')
+        center_align.triggered.connect(lambda: self.parent.format_text('align_center'))
+        alignment_menu.addAction(center_align)
+
+        # ضبط
+        justify_align = QAction('ضبط', self)
+        justify_align.setShortcut('Ctrl+Shift+J')
+        justify_align.triggered.connect(lambda: self.parent.format_text('align_justify'))
+        alignment_menu.addAction(justify_align)
+        
         format_menu.addSeparator()
         
         font_action = QAction('اختيار الخط...', self)
         font_action.triggered.connect(self.show_font_dialog)
         format_menu.addAction(font_action)
-
-        
-
 
     def toggle_auto_save(self, enabled):
         """تفعيل/تعطيل الحفظ التلقائي"""
@@ -171,3 +191,5 @@ class ArabicMenuBar(QMenuBar):
             terminal = self.parent.terminal_container.findChild(ArabicTerminal)
             if terminal:
                 terminal.show_search()
+
+        

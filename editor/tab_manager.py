@@ -12,6 +12,8 @@ class TabManager(QTabWidget):
         self.main_window = main_window
         self.file_paths = {}  # قاموس لتخزين مسارات الملفات
         self.untitled_count = 0  # عداد للملفات الجديدة
+        self.closed_tabs = []  # قائمة للتبويبات المغلقة
+        self.max_closed_tabs = 10  # العدد الأقصى للتبويبات المغلقة المحفوظة
         self.setTabsClosable(True)
         self.tabCloseRequested.connect(self.close_tab)
         self.currentChanged.connect(self.tab_changed)
@@ -101,12 +103,46 @@ class TabManager(QTabWidget):
         
     def close_tab(self, index):
         """إغلاق التبويب"""
-        if index in self.file_paths:
-            del self.file_paths[index]  # حذف مسار الملف عند إغلاق التبويب
-        super().removeTab(index)
-        
-
+        # حفظ معلومات التبويب قبل إغلاقه
+        editor = self.widget(index).findChild(ArabicTextEdit)
+        if editor:
+            tab_info = {
+                'text': editor.toPlainText(),
+                'file_path': self.file_paths.get(editor),
+                'tab_name': self.tabText(index),
+                'cursor_position': editor.textCursor().position()
+            }
+            self.closed_tabs.append(tab_info)
             
+            # حذف أقدم تبويب إذا تجاوزنا الحد الأقصى
+            if len(self.closed_tabs) > self.max_closed_tabs:
+                self.closed_tabs.pop(0)
+        
+        if editor in self.file_paths:
+            del self.file_paths[editor]
+        
+        self.removeTab(index)
+        
+    def restore_last_closed_tab(self):
+        """استعادة آخر تبويب مغلق"""
+        if not self.closed_tabs:
+            return
+            
+        tab_info = self.closed_tabs.pop()
+        editor = self.new_tab(tab_info['file_path'])
+        
+        if editor:
+            editor.setPlainText(tab_info['text'])
+            
+            # استعادة موضع المؤشر
+            cursor = editor.textCursor()
+            cursor.setPosition(tab_info['cursor_position'])
+            editor.setTextCursor(cursor)
+            
+            # تحديث عنوان التبويب
+            current_index = self.currentIndex()
+            self.setTabText(current_index, tab_info['tab_name'])
+        
     def tab_changed(self, index):
         """معالجة تغيير التبويب النشط"""
         if index >= 0:

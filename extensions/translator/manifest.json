@@ -1,15 +1,14 @@
 {
-    "name": "محلل النصوص",
-    "id": "text-analyzer",
+    "name": "المترجم",
+    "id": "translator",
     "version": "1.0.0",
-    "description": "تحليل متقدم للنص مع إحصائيات وتوصيات",
+    "description": "إضافة للترجمة الفورية للنصوص باستخدام ترجمة جوجل",
     "category": "tools",
     "author": "فريق رحلة",
-    "main": "text_analyzer.py",
+    "main": "translator.py",
     "icon": "icon.png",
     "requires": {
-        "arabic-reshaper": ">=2.1.0",
-        "python-bidi": ">=0.4.2"
+        "deep-translator": ">=1.9.0"
     },
     "platform": {
         "windows": true,
@@ -21,7 +20,6 @@
         "max": "2.0.0"
     },
     "requirements": [
-        "arabic-reshaper",
-        "python-bidi"
+        "deep-translator"
     ]
-}
+} 

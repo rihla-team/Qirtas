@@ -1,325 +1,118 @@
-from PyQt5.QtWidgets import QTextEdit, QWidget, QHBoxLayout, QMenu, QAction
-from PyQt5.QtGui import QTextOption, QTextCharFormat, QColor, QTextFormat, QTextCursor, QKeySequence
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QDragEnterEvent, QDropEvent
+from PyQt5.QtWidgets import QTextEdit, QWidget, QHBoxLayout, QMenu, QAction, QFileDialog, QMessageBox
+from PyQt5.QtGui import QTextOption, QTextCharFormat, QColor, QTextCursor, QKeySequence
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal
+from utils.syntax_highlighter import CodeHighlighter
+import os
 
 class ArabicTextEdit(QTextEdit):
+    file_type_changed = pyqtSignal(str)  # إشارة عند تغيير نوع الملف
+
     def __init__(self, main_window):
         super().__init__()
         self.main_window = main_window
-        self.file_path = None  # إضافة متغير لتخزين مسار الملف
-        self._font_update_in_progress = False
-        
+        self.file_path = None
+
         # إنشاء الحاوية
         self.container = QWidget()
         self.container_layout = QHBoxLayout(self.container)
         self.container_layout.setContentsMargins(0, 0, 0, 0)
-        self.container_layout.setSpacing(0)
-        
-        # إضافة المحرر للحاوية
         self.container_layout.addWidget(self)
-        
-        # إعداد المحرر
+
+        # إعدادات المحرر
         self.setup_editor()
-        
-        # تطبيق الخط الافتراضي
-        if hasattr(self.main_window, 'default_font'):
-            self.apply_font_direct(self.main_window.default_font)
-        
-        # إضافة الإشارات
-        self.cursorPositionChanged.connect(self.highlight_current_line)
-        self.document().modificationChanged.connect(self._handle_modification_changed)
-        self.document().contentsChange.connect(self._handle_contents_change)
-        self.cursorPositionChanged.connect(self._handle_cursor_position_changed)
-        self.textChanged.connect(self._handle_text_changed)
-        
-        # إعداد مؤقت لتحديث الخط
-        self.update_timer = QTimer()
-        self.update_timer.setSingleShot(True)
-        self.update_timer.setInterval(100)
-        self.update_timer.timeout.connect(self._handle_text_changed)
-        
-        # تفعيل قبول السحب والإفلات
-        self.setAcceptDrops(True)
+        self.setup_signals_and_timers()
 
-    def get_container(self):
-        """الحصول على الحاوية الرئيسية"""
-        return self.container
-
+        # تخصيص التمييز اللغوي
+        self.highlighter = CodeHighlighter(self.document())
+        self._file_type_update_timer = QTimer()
+        self._file_type_update_timer.setSingleShot(True)
+        self._file_type_update_timer.setInterval(5000) 
+        
+        
     def setup_editor(self):
-        """إعداد المحرر"""
-        # إعداد خيارات النص
+        """إعدادات المحرر الأساسية."""
         options = QTextOption()
-        options.setTextDirection(Qt.RightToLeft)
+        options.setTextDirection(Qt.RightToLeft)  # تثبيت الاتجاه من اليمين إلى اليسار
         self.document().setDefaultTextOption(options)
-        
-        # تعيين نمط المحرر
+
+        self.setLineWrapMode(QTextEdit.NoWrap)  # التفاف النص بناءً على عرض النافذة
+        self.setWordWrapMode(QTextOption.NoWrap)
+        self.setCurrentCharFormat(QTextCharFormat())
+        self.setAcceptRichText(True)
         self.setStyleSheet("""
             QTextEdit {
                 background-color: #1e1e1e;
                 color: #d4d4d4;
                 border: none;
-                padding: 0;
                 selection-background-color: #264f78;
                 selection-color: #ffffff;
+                white-space: nowrap;  /* تعطيل التفاف النص */
             }
         """)
-        
-        # إزالة هوامش المستند
-        self.document().setDocumentMargin(0)
+    def setup_signals_and_timers(self):
+        """إعداد الإشارات والمؤقتات."""
+        self.cursorPositionChanged.connect(self.highlight_current_line)
+        self.textChanged.connect(self.on_text_changed)
 
-    def apply_font_direct(self, font):
-        """تطبيق الخط مباشرة بدون تكرار"""
-        if not font or self._font_update_in_progress:
-            return
-            
-        self._font_update_in_progress = True
-        try:
-            # تعطيل الإشارات مؤقتاً
-            self.document().blockSignals(True)
-            
-            # تطبيق الخط
-            self.setFont(font)
-            self.document().setDefaultFont(font)
-            
-            # تطبيق على النص المحدد فقط إذا كان هناك تحديد
-            cursor = self.textCursor()
-            if cursor.hasSelection():
-                format = QTextCharFormat()
-                format.setFont(font)
-                cursor.mergeCharFormat(format)
-                
-        finally:
-            self.document().blockSignals(False)
-            self._font_update_in_progress = False
+        # مؤقت تحسين الذاكرة
+        self.memory_timer = QTimer()
+        self.memory_timer.setInterval(300000)  # كل 5 دقائق
+        self.memory_timer.timeout.connect(self.optimize_memory)
+        self.memory_timer.start()
+
+        # مؤقت تحديث نوع الملف
+        self._file_type_update_timer = QTimer()
+        self._file_type_update_timer.setSingleShot(True)
+        self._file_type_update_timer.setInterval(5000)
+        self._file_type_update_timer.timeout.connect(self.update_file_type)
 
     def highlight_current_line(self):
-        """تمييز السطر الحالي"""
-        extraSelections = []
-        
-        if not self.isReadOnly():
-            selection = QTextEdit.ExtraSelection()
-            line_color = QColor("#2d2d2d")  # لون خلفية السطر الحالي
-            
-            selection.format.setBackground(line_color)
-            selection.format.setProperty(QTextFormat.FullWidthSelection, True)
-            selection.cursor = self.textCursor()
-            selection.cursor.clearSelection()
-            extraSelections.append(selection)
-        
-        self.setExtraSelections(extraSelections)
+        """تمييز السطر الحالي."""
+        if self.isReadOnly():
+            return
 
-    def _handle_modification_changed(self, modified):
-        """معالجة تغيير حالة التعديل"""
-        editor_window = self.main_window
-        
-        current_index = editor_window.tab_manager.currentIndex()
-        current_title = editor_window.tab_manager.tabText(current_index)
-        
-        # إزالة علامة * إذا كانت موجودة
-        if current_title.endswith('*'):
-            current_title = current_title[:-1]
-            
-        # إضافة علامة * إذا تم التعديل
-        if modified:
-            current_title += '*'
-            # محاولة الحفظ التلقائي
-            if hasattr(editor_window, 'auto_saver') and editor_window.auto_saver.enabled:
-                editor_window.auto_saver.add_file_to_autosave(
-                    editor_window.tab_manager.file_paths[self],
-                    self
-                )
-                
-        editor_window.tab_manager.setTabText(current_index, current_title)
-        
-    def _handle_contents_change(self, position, removed, added):
-        """عالجة التغييرات في المحتوى"""
-        if removed > 0 or added > 0:  # إذا تم إضافة أو حذف نص
-            self.update_timer.start()
-            
-    def _handle_text_changed(self):
-        """معالجة تغيير النص"""
-        if not hasattr(self.main_window, 'default_font'):
-            return
-            
-        # تجنب التحديث إذا كان الخط نفسه
-        if self.main_window.default_font == self.font():
-            return
-            
-        # تعطيل الإشارات مؤقتاً
-        self.document().blockSignals(True)
-        
-        # تطبيق الخط
-        self.setFont(self.main_window.default_font)
-        self.document().setDefaultFont(self.main_window.default_font)
-        
-        # إعادة تفعيل الإشارات
-        self.document().blockSignals(False)
-        
-        # تحديث الإحصائيات
-        if hasattr(self.main_window, 'update_status'):
-            self.main_window.update_status()
-        
-    def setPlainText(self, text):
-        """تجاوز دالة setPlainText للحفاظ على الخط"""
-        super().setPlainText(text)
-        self.textChanged.emit()
-        
-    def clear(self):
-        """تجاوز دالة clear للحفاظ على الخط"""
-        super().clear()
-        self.textChanged.emit()
-        
-    def insertPlainText(self, text):
-        """تجاوز دالة insertPlainText للحفاظ على الخط"""
-        super().insertPlainText(text)
-        self.textChanged.emit()
-        
-    def _update_font(self):
-        """تحديث الخط"""
-        if not hasattr(self.main_window, 'default_font'):
-            return
-        
-        font = self.main_window.default_font
-        if font != self.font():
-            self.setFont(font)
-            self.document().setDefaultFont(font)
-            
-            # تطبيق على كل النص
-            cursor = self.textCursor()
-            cursor.select(QTextCursor.Document)
-            format = QTextCharFormat()
-            format.setFont(font)
-            cursor.mergeCharFormat(format)
-            self.setTextCursor(cursor)
-            
-            print(f"تم تحديث الخط إلى: {font.family()}, {font.pointSize()}")
+        selection = QTextEdit.ExtraSelection()
+        selection.format.setBackground(QColor("#2d2d2d"))
+        selection.cursor = self.textCursor()
+        selection.cursor.clearSelection()
+        self.setExtraSelections([selection])
 
-    def update_font_settings(self, font):
-        """تحديث إعدادات الخط"""
-        print(f"تحديث خط المحرر إلى: {font.family()}, {font.pointSize()}")
-        
-        # تطبيق الخط على المحرر نفسه
-        self.setFont(font)
-        
-        # تطبيق الخط على كل النص الموجود
+    def optimize_memory(self):
+        """تحسين استخدام الموارد."""
+        self.document().clearUndoRedoStacks()
+        self.document().setUndoRedoEnabled(False)
+        self.document().setUndoRedoEnabled(True)
+
+    def start_timer(self, timer):
+        """تشغيل مؤقت محدد."""
+        if not timer.isActive():
+            timer.start()
+
+    def add_diacritic(self, diacritic):
+        """إضافة تشكيل للنص المحدد."""
         cursor = self.textCursor()
-        cursor.select(QTextCursor.Document)
-        
-        format = QTextCharFormat()
-        format.setFont(font)
-        cursor.mergeCharFormat(format)
-        
-        # تعيين الخط الافتراضي للمستند
-        self.document().setDefaultFont(font)
-        
-        # تحديث العرض
-        self.viewport().update()
-    def _handle_cursor_position_changed(self):
-        """معالجة تغيير موقع المؤشر"""
-        editor_window = self.main_window
-        while not hasattr(editor_window, 'update_cursor_position') and editor_window.parent():
-            editor_window = editor_window.parent()
-        
-        if hasattr(editor_window, 'update_cursor_position'):
-            editor_window.update_cursor_position()
+        if cursor.hasSelection():
+            text = cursor.selectedText()
+            new_text = ''.join(
+                char + diacritic if char.isalpha() and '؀' <= char <= 'ۿ' else char
+                for char in text
+            )
+            cursor.insertText(new_text)
+        else:
+            cursor.insertText(diacritic)
 
-    def apply_font(self, font):
-        """تطبيق الخط على المحرر والنص"""
-        if not font:
-            return
-        
-        self.setFont(font)
-        self.document().setDefaultFont(font)
-        
-        # تطبيق على كل النص
+    def remove_all_diacritics(self):
+        """إزالة جميع التشكيلات."""
+        from tashaphyne.normalize import strip_tashkeel
         cursor = self.textCursor()
-        cursor.select(QTextCursor.Document)
-        format = QTextCharFormat()
-        format.setFont(font)
-        cursor.mergeCharFormat(format)
+        if cursor.hasSelection():
+            text = cursor.selectedText()
+            cursor.insertText(strip_tashkeel(text))
 
-    def apply_font_direct(self, font):
-        """تطبيق الخط مباشرة بدون تكرار"""
-        if not font or font == self.font():
-            return
-        
-        # تعطيل جميع الإشارات المتعلقة بالخط
-        self.document().blockSignals(True)
-        self.blockSignals(True)
-        
-        try:
-            # تطبيق الخط على المحرر
-            self.setFont(font)
-            self.document().setDefaultFont(font)
-            
-            # تطبيق على كل النص
-            cursor = self.textCursor()
-            cursor.select(QTextCursor.Document)
-            format = QTextCharFormat()
-            format.setFont(font)
-            cursor.mergeCharFormat(format)
-            
-        finally:
-            # إعادة تفعيل الإشارات
-            self.document().blockSignals(False)
-            self.blockSignals(False)
-
-    def dragEnterEvent(self, event: QDragEnterEvent):
-        """معالجة بداية عملية السحب"""
-        mime_data = event.mimeData()
-        
-        # قبول الملفات النصية والنصوص العادية
-        if mime_data.hasUrls() or mime_data.hasText():
-            event.acceptProposedAction()
-            
-    def dragMoveEvent(self, event):
-        """معالجة حركة السحب"""
-        event.acceptProposedAction()
-            
-    def dropEvent(self, event: QDropEvent):
-        """معالجة عملية الإفلات"""
-        mime_data = event.mimeData()
-        
-        # التعامل مع إفلات الملفات
-        if mime_data.hasUrls():
-            for url in mime_data.urls():
-                file_path = url.toLocalFile()
-                if file_path:
-                    # التحقق من نوع الملف
-                    if self._is_text_file(file_path):
-                        # فتح الملف في تبويب جديد
-                        editor = self.main_window.tab_manager.open_file(file_path)
-                        if editor:
-                            # تعيين مسار الملف وإطلاق إشارة file_dropped
-                            editor.file_path = file_path
-                            self.main_window.file_dropped.emit(file_path, editor)
-                    else:
-                        from PyQt5.QtWidgets import QMessageBox
-                        QMessageBox.warning(
-                            self,
-                            "خطأ",
-                            "يمكن فتح الملفات النصية فقط"
-                        )
-                        
-        # التعامل مع إفلات النص
-        elif mime_data.hasText():
-            cursor = self.cursorForPosition(event.pos())
-            cursor.insertText(mime_data.text())
-            
-        event.acceptProposedAction()
-        
-    def _is_text_file(self, file_path):
-        """التحقق مما إذا كان الملف نصياً"""
-        try:
-            # محاولة قراءة الملف كنص
-            with open(file_path, 'r', encoding='utf-8') as f:
-                f.read(1024)  # قراءة جزء صغير للتحقق
-            return True
-        except UnicodeDecodeError:
-            return False
-        except Exception:
-            return False
+    def update_file_type(self):
+        """تحديث نوع الملف."""
+        file_type = self.highlighter.get_file_type()
+        self.file_type_changed.emit(file_type)
 
     def contextMenuEvent(self, event):
         """إنشاء قائمة السياق عند النقر بزر الماوس الأيمن"""
@@ -357,13 +150,6 @@ class ArabicTextEdit(QTextEdit):
         paste_action.triggered.connect(self.paste)
         paste_action.setEnabled(self.canPaste())
         context_menu.addAction(paste_action)
-
-        delete_action = QAction('حذف', self)
-        delete_action.setShortcut(QKeySequence.Delete)
-        delete_action.triggered.connect(lambda: self.textCursor().removeSelectedText())
-        delete_action.setEnabled(self.textCursor().hasSelection())
-        context_menu.addAction(delete_action)
-
         context_menu.addSeparator()
 
         select_all_action = QAction('تحديد الكل', self)
@@ -388,6 +174,31 @@ class ArabicTextEdit(QTextEdit):
         underline_action.setShortcut(QKeySequence.Underline)
         underline_action.triggered.connect(lambda: self.main_window.format_text('underline'))
         format_menu.addAction(underline_action)
+        
+        alignment_menu = format_menu.addMenu('محاذاة')
+        
+        right_align = QAction('محاذاة لليمين', self)
+        right_align.setShortcut('Ctrl+Shift+R')
+        right_align.triggered.connect(lambda: self.main_window.format_text('align_right'))
+        alignment_menu.addAction(right_align)
+
+        # محاذاة لليسار
+        left_align = QAction('محاذاة لليسار', self)
+        left_align.setShortcut('Ctrl+Shift+L')
+        left_align.triggered.connect(lambda: self.main_window.format_text('align_left'))
+        alignment_menu.addAction(left_align)
+
+        # توسيط
+        center_align = QAction('توسيط', self)
+        center_align.setShortcut('Ctrl+Shift+E')
+        center_align.triggered.connect(lambda: self.main_window.format_text('align_center'))
+        alignment_menu.addAction(center_align)
+
+        # ضبط
+        justify_align = QAction('ضبط', self)
+        justify_align.setShortcut('Ctrl+Shift+J')
+        justify_align.triggered.connect(lambda: self.main_window.format_text('align_justify'))
+        alignment_menu.addAction(justify_align)
 
         # إضافة قائمة فرعية للتشكيل
         diacritics_menu = context_menu.addMenu('تشكيل')
@@ -412,39 +223,103 @@ class ArabicTextEdit(QTextEdit):
         remove_diacritics_action = QAction('إزالة كل التشكيل', self)
         remove_diacritics_action.triggered.connect(self.remove_all_diacritics)
         diacritics_menu.addAction(remove_diacritics_action)
-
+        if hasattr(self.main_window, 'extensions_manager'):
+            extension_items = self.main_window.extensions_manager.get_context_menu_items()
+            
+            if extension_items:
+                # إضافة فاصل قبل عناصر الملحقات
+                context_menu.addSeparator()
+                
+                # تنظيم العناصر حسب الملحق
+                extensions_menu = {}
+                
+                for item in extension_items:
+                    ext_id = item.get('extension_id', '')
+                    
+                    # إنشاء قائمة فرعية للملحق إذا لم تكن موجودة
+                    if ext_id not in extensions_menu:
+                        ext_name = self.main_window.extensions_manager.extensions[ext_id]['manifest'].get('name', ext_id)
+                        extensions_menu[ext_id] = context_menu.addMenu(ext_name)
+                    
+                    # إنشاء الإجراء
+                    action = self.main_window.extensions_manager.create_context_menu_action(item, extensions_menu[ext_id])
+                    extensions_menu[ext_id].addAction(action)
+                    
         # عرض القائمة
         context_menu.exec_(event.globalPos())
+    def apply_font_direct(self, font):
+        """تطبيق الخط مباشرة بدون تكرار"""
+        if not font or font == self.font():
+            return
 
-    def add_diacritic(self, diacritic):
-        """إضافة تشكيل للنص المحدد"""
+        # تعطيل جميع الإشارات المتعلقة بالخط
+        self.document().blockSignals(True)
+        self.blockSignals(True)
+
+        try:
+            # تطبيق الخط على المحرر
+            self.setFont(font)
+            self.document().setDefaultFont(font)
+
+            # تطبيق على كل النص
+            cursor = self.textCursor()
+            cursor.select(QTextCursor.Document)
+            format = QTextCharFormat()
+            format.setFont(font)
+            cursor.mergeCharFormat(format)
+
+        finally:
+            # إعادة تفعيل الإشارات
+            self.document().blockSignals(False)
+            self.blockSignals(False)
+            
+    def get_container(self):
+        """إرجاع الحاوية التي تحتوي على المحرر."""
+        return self.container
+    def apply_font(self, font):
+        """تطبيق الخط على المحرر والنص."""
+        if not font:
+            return
+
+        # تطبيق الخط على المحرر
+        self.setFont(font)
+        self.document().setDefaultFont(font)
+
+        # تطبيق على كل النص
         cursor = self.textCursor()
-        if cursor.hasSelection():
-            text = cursor.selectedText()
-            new_text = ""
-            for char in text:
-                if char.isalpha() and '\u0600' <= char <= '\u06FF':  # التحقق من أن الحرف عربي
-                    new_text += char + diacritic
-                else:
-                    new_text += char
-            cursor.insertText(new_text)
-        else:
-            position = cursor.position()
-            cursor.movePosition(cursor.Left)
-            cursor.movePosition(cursor.Right, cursor.KeepAnchor)
-            char = cursor.selectedText()
-            if char.isalpha() and '\u0600' <= char <= '\u06FF':
-                cursor.insertText(char + diacritic)
-            cursor.setPosition(position + 1)
-            self.setTextCursor(cursor)
+        cursor.select(QTextCursor.Document)
+        format = QTextCharFormat()
+        format.setFont(font)
+        cursor.mergeCharFormat(format)
 
-    def remove_all_diacritics(self):
-        """إزالة جميع التشكيلات من النص المحدد"""
-        cursor = self.textCursor()
-        if cursor.hasSelection():
-            text = cursor.selectedText()
-            from tashaphyne.normalize import strip_tashkeel
-            new_text = strip_tashkeel(text)
-            cursor.insertText(new_text)
+    def load_file_with_hidden_char(self, file_path):
+        """تحميل الملف وإضافة حرف خفي بعد علامات التنصيص في نهاية السطر."""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+            
+            # إضافة الحرف الخفي بعد علامات التنصيص في نهاية السطر
+            modified_content = self.add_hidden_char_after_quotes(content)
+            self.setPlainText(modified_content)
+        except Exception as e:
+            QMessageBox.critical(self, "خطأ", f"حدث خطأ أثناء تحميل الملف: {str(e)}")
 
+    def add_hidden_char_after_quotes(self, text):
+        """إضافة حرف خفي بعد علامات التنصيص في نهاية السطر."""
+        lines = text.split('\n')
+        modified_lines = []
+        for line in lines:
+            if line.strip().endswith('"'):
+                line += '\u200E'  # إضافة الحرف الخفي
+            modified_lines.append(line)
+        return '\n'.join(modified_lines)
 
+    def on_text_changed(self):
+        """معالجة التغييرات في النص."""
+        text = self.toPlainText()
+        modified_text = self.add_hidden_char_after_quotes(text)
+        if text != modified_text:
+            self.blockSignals(True)  # منع الإشارات لتجنب التكرار
+            self.setPlainText(modified_text)
+            self.blockSignals(False)
+        self.start_timer(self._file_type_update_timer)

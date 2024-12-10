@@ -1,9 +1,9 @@
 {
-    "name": "موثق الكود",
-    "id": "code-documenter",
+    "name": "إحصائيات العربية",
+    "id": "arabic-stats",
     "version": "1.0.0",
-    "description": "أداة لتوثيق وشرح الكود بشكل تفاعلي",
-    "category": "development",
+    "description": "إضافة لعرض إحصائيات النص العربي في شريط الحالة",
+    "category": "statistics",
     "author": "فريق رحلة",
     "main": "main.py",
     "icon": "icon.png",
@@ -17,4 +17,4 @@
         "min": "1.0.0",
         "max": "2.0.0"
     }
-}
+} 
