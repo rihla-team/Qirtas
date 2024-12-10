@@ -260,7 +260,10 @@ class InteractiveDocViewer(QDialog):
         
         # تحميل التوثيق
         self.load_api_docs()
+    
 
+        
+    # ... باقي الكود ...
     def show_element_details(self, item: QTreeWidgetItem, column: int):
         """عرض تفاصيل العنصر المحدد"""
         text = item.text(0)
@@ -295,7 +298,19 @@ class InteractiveDocViewer(QDialog):
             self.show_file_extension_example()
         elif text == "6- إضافة مع اختصارات لوحة المفاتيح":
             self.show_shortcut_extension_example()
-        
+        elif text == "7- التعديل على موجة الأوامر":
+            self.show_terminal_extension_example()
+        elif text == "8- إضافة أوامر في موجة الأوامر":
+            self.show_terminal_addcommand_example()
+        elif text == "9- إضافة محلل نصوص":
+            self.show_parser_extension_example()
+        elif text == "10- إضافة مدير المشاريع":
+            self.show_project_manager_example()
+        elif text == "11- إضافة Git":
+            self.show_git_extension_example()
+        elif text == "12-التعديل على القائمة المنبثقة":
+            self.show_extensions_system_docs()
+            
         # أفضل الممارسات
         elif text == "هيكلة اكود":
             self.show_code_structure_practices()
@@ -324,7 +339,9 @@ class InteractiveDocViewer(QDialog):
         elif text == "10- إضافة مدير المشاريع":
             self.show_project_manager_example()
         elif text == "11- إضافة Git":
-            self.show_git_extension_example()
+            self.show_git_extension_example()   
+        elif text == "12-التعديل على القائمة المنبثقة":
+            self.show_extensions_system_docs()
 
     def load_extensions_manager_docs(self):
         """تحميل توثيق مدير الإضافات"""
@@ -358,6 +375,7 @@ class InteractiveDocViewer(QDialog):
         examples.addChild(QTreeWidgetItem(["9- إضافة محلل نصوص"]))
         examples.addChild(QTreeWidgetItem(["10- إضافة مدير المشاريع"]))
         examples.addChild(QTreeWidgetItem(["11- إضافة Git"]))
+        examples.addChild(QTreeWidgetItem(["12-التعديل على القائمة المنبثقة"]))
         main_item.addChild(examples)
         
         # إضافة أفضل الممارسات
@@ -933,7 +951,7 @@ class Extension:
         <h4>1. تنظيم الملفات</h4>
         <pre>
 my_extension/
-    ├── __init__.py
+    ├─ __init__.py
     ├── main.py
     ├── manifest.json
     ├── utils/
@@ -981,7 +999,7 @@ my_extension/
         <h4>2. تحسين الذاكرة</h4>
         <ul>
             <li>استخدام التخزين المؤقت للبيانات المتكررة</li>
-            <li>��جنب تسرب الذاكرة</li>
+            <li>تجنب تسرب الذاكرة</li>
             <li>استخدام الموارد بحكمة</li>
         </ul>
         """
@@ -1588,8 +1606,7 @@ class GitExtension:
         elif action == push:
             self.push_changes()
         elif action == pull:
-            self.pull_changes()
-        </code></pre>
+            self.pull_changes()        </code></pre>
         """
         self.details_browser.setHtml(html)
 
@@ -1988,4 +2005,242 @@ class Extension:
             <li>اختبار الأمر والتأكد من عمله</li>
         </ol>
         '''
+        self.details_browser.setHtml(html)
+        
+    def show_extensions_system_docs(self):
+        """عرض توثيق نظام الإضافات"""
+        html = """
+        <h3>نظام الإضافات</h3>
+        
+        <h4>1. هيكل الإضافة</h4>
+        <pre>
+        extension_name/
+            ├── __init__.py
+            ├── main.py          # النقطة الرئيسية للإضافة
+            ├── manifest.json    # معلومات الإضافة
+            └── icon.png        # أيقونة الإضافة (اختياري)
+        </pre>
+
+        <h4>2. ملف manifest.json</h4>
+        <pre><code>
+        {
+            "name": "اسم الإضافة",
+            "version": "1.0.0",
+            "description": "وصف الإضافة",
+            "author": "اسم المطور",
+            "requires": {
+                "python": ">=3.6",
+                "packages": ["numpy", "pandas"]
+            }
+        }
+        </code></pre>
+
+        <h4>3. الفئة الرئيسية للإضافة</h4>
+        <pre><code class="python">
+        class Extension:
+            def __init__(self, editor):
+                self.editor = editor
+                
+            def initialize(self):
+                '''تهيئة الإضافة'''
+                pass
+                
+            def get_menu_items(self):
+                '''إضافة عناصر للقائمة'''
+                return [{
+                    'name': 'اسم العنصر',
+                    'callback': self.some_action,
+                    'shortcut': 'Ctrl+Shift+X'  # اختياري
+                }]
+                
+            def get_context_menu_items(self):
+                '''إضافة عناصر للقائمة السياقية'''
+                return [{
+                    'name': 'اسم العنصر',
+                    'callback': self.some_action
+                }]
+        </code></pre>
+
+        <h4>4. واجهة برمجة الإضافات</h4>
+        <ul>
+            <li><code>editor</code>: كائن المحرر الرئيسي
+                <ul>
+                    <li><code>get_current_editor()</code>: الحصول على المحرر النصي الحالي</li>
+                    <li><code>tab_manager</code>: مدير التبويبات</li>
+                    <li><code>settings_manager</code>: مدير الإعدادات</li>
+                </ul>
+            </li>
+        </ul>
+
+        <h4>5. أمثلة للإضافات</h4>
+        <ul>
+            <li>إضافة قوائم جديدة</li>
+            <li>إضافة أدوات تحرير</li>
+            <li>دعم تنسيقات ملفات جديدة</li>
+            <li>إضافة ميزات للتحليل والتصحيح</li>
+            <li>تخصيص واجهة المستخدم</li>
+        </ul>
+
+        <h4>6. أفضل الممارسات</h4>
+        <ul>
+            <li>استخدام الموارد بكفاءة</li>
+            <li>التحقق من الأخطاء</li>
+            <li>توثيق الكود</li>
+            <li>اتباع معايير التسمية</li>
+            <li>دعم التعريب</li>
+        </ul>
+        """
+        self.details_browser.setHtml(html)
+        
+    def show_extensions_dir_details(self):
+        """عرض توثيق المجلدات"""
+        html = """
+        <h3>هيكل مجلدات الإضافات</h3>
+
+        <h4>1. المجلد الرئيسي للإضافات</h4>
+        <pre>
+        extensions/
+        ├── extension1/          # مجلد الإضافة الأولى
+        ├── extension2/          # مجلد الإضافة الثانية
+        └── extension3/          # مجلد الإضافة الثالثة
+        </pre>
+
+        <h4>2. هيكل مجلد الإضافة</h4>
+        <pre>
+        extension_name/
+        ├── __init__.py         # ملف التهيئة
+        ├── main.py             # الملف الرئيسي للإضافة
+        ├── manifest.json       # ملف المعلومات
+        ├── icon.png            # أيقونة الإضافة (اختياري)
+        ├── locale/             # مجلد الترجمات (اختياري)
+        │   ├── ar/            # الترجمات العربية
+        │   └── en/            # الترجمات الإنجليزية
+        ├── resources/          # مجلد الموارد (اختياري)
+        │   ├── images/        # الصور
+        │   └── styles/        # أنماط CSS
+        └── docs/              # مجلد التوثيق (اختياري)
+            ├── README.md      # شرح الإضافة
+            └── api.md         # توثيق API
+        </pre>
+
+        <h4>3. الملفات الإلزامية</h4>
+        <ul>
+            <li><code>__init__.py</code>: ملف فارغ لتعريف المجلد كحزمة Python</li>
+            <li><code>main.py</code>: يحتوي على الكود الرئيسي للإضافة</li>
+            <li><code>manifest.json</code>: يحتوي على معلومات الإضافة</li>
+        </ul>
+
+        <h4>4. المجلدات الاختيارية</h4>
+        <ul>
+            <li><code>locale/</code>: لدعم تعدد اللغات</li>
+            <li><code>resources/</code>: للموارد الإضافية</li>
+            <li><code>docs/</code>: لتوثيق الإضافة</li>
+        </ul>
+        """
+        self.details_browser.setHtml(html)
+
+    def show_extensions_details(self):
+        """عرض توثيق نظام الإضافات"""
+        html = """
+        <h3>نظام الإضافات</h3>
+
+        <h4>1. إنشاء إضافة جديدة</h4>
+        <pre><code class="python">
+        class Extension:
+            def __init__(self, editor):
+                self.editor = editor
+                self.initialize()
+
+        def initialize(self):
+            '''تهيئة الإضافة'''
+            pass
+
+        def get_menu_items(self):
+            '''إضافة عناصر القائمة'''
+            return [{
+                'name': 'اسم العنصر',
+                'callback': self.some_action,
+                'shortcut': 'Ctrl+Shift+X',
+                'icon': 'path/to/icon.png'
+            }]
+
+        def get_context_menu_items(self):
+            '''إضافة عناصر القائمة السياقية'''
+            return [{
+                'name': 'اسم العنصر',
+                'callback': self.some_action,
+                'enabled': True,
+                'shortcut': 'Ctrl+Alt+X'
+            }]
+        def get_shortcuts(self):
+            '''تعريف اختصارات الملحق'''
+            print("تم استدعاء get_shortcuts")  # للتصحيح
+            return [{
+                'shortcut': 'Ctrl+X',  # تغيير الاختصار لتجنب التعارض
+                'callback': self.some_action
+            }]
+        </code></pre>
+
+
+        <h4>2. ملف manifest.json</h4>
+        <pre><code class="json">
+        {
+            "name": "اسم الإضافة",
+            "version": "1.0.0",
+            "description": "وصف الإضافة",
+            "author": "اسم المطور",
+            "email": "email@example.com",
+            "website": "https://example.com",
+            "license": "MIT",
+            "main": "main.py",
+            "icon": "icon.png",
+            "requires": {
+                "python": ">=3.6",
+                "packages": ["numpy", "pandas"],
+                "editor_version": ">=1.0.0"
+            },
+            "categories": ["تحرير", "أدوات", "تنسيق"],
+            "keywords": ["كلمة1", "كلمة2"]
+        }
+        </code></pre>
+
+        <h4>3. الواجهات البرمجية المتاحة</h4>
+        <ul>
+            <li>واجهة المحرر:
+                <ul>
+                    <li><code>editor.get_current_editor()</code>: المحرر الحالي</li>
+                    <li><code>editor.tab_manager</code>: إدارة التبويبات</li>
+                    <li><code>editor.settings_manager</code>: إدارة الإعدادات</li>
+                    <li><code>editor.format_text(type, **kwargs)</code>: تنسيق النص</li>
+                </ul>
+            </li>
+            <li>واجهة المحرر النصي:
+                <ul>
+                    <li><code>text_editor.insert_text(text)</code>: إدراج نص</li>
+                    <li><code>text_editor.get_selected_text()</code>: النص المحدد</li>
+                    <li><code>text_editor.set_font(font)</code>: تعيين الخط</li>
+                </ul>
+            </li>
+        </ul>
+
+        <h4>4. دورة حياة الإضافة</h4>
+        <ol>
+            <li>تحميل الإضافة عند بدء التشغيل</li>
+            <li>استدعاء <code>__init__</code></li>
+            <li>استدعاء <code>initialize</code></li>
+            <li>تسجيل عناصر القوائم</li>
+            <li>تفعيل الإضافة وتنفيذ المهام</li>
+            <li>إيقاف الإضافة عند الإغلاق</li>
+        </ol>
+
+        <h4>5. أفضل الممارسات</h4>
+        <ul>
+            <li>التحقق من الأخطاء وإدارتها</li>
+            <li>تنظيف الموارد عند إيقاف الإضافة</li>
+            <li>دعم التعريب والترجمة</li>
+            <li>توثيق الكود والواجهات</li>
+            <li>اتباع معايير PEP 8</li>
+            <li>استخدام الموارد بكفاءة</li>
+        </ul>
+        """
         self.details_browser.setHtml(html)

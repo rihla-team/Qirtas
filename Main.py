@@ -1,15 +1,12 @@
 import sys
 import os
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication, QMainWindow, QTextEdit, QVBoxLayout, QWidget
 from PyQt5.QtCore import Qt, pyqtSignal, QObject
-from PyQt5.QtGui import QTextCursor, QTextCharFormat
 from editor.text_editor import ArabicEditor
 from utils.extensions_manager import ExtensionsManager
-
-
-
 def main():
     app = QApplication(sys.argv)
+    app_version = "1.0.0"
     
     # تحميل التنسيق
     style_path = os.path.join(os.path.dirname(__file__), 'resources', 'style.qss')
@@ -28,6 +25,8 @@ def main():
     # إضافة مدير الإضافات
     extensions_manager = ExtensionsManager(editor)
     editor.extensions_manager = extensions_manager
+    
+
     
     editor.show()
     sys.exit(app.exec_())

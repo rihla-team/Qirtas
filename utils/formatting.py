@@ -1,4 +1,5 @@
 from PyQt5.QtGui import QFont
+from PyQt5.QtCore import Qt
 
 class TextFormatter:
     ARABIC_TEMPLATES = {
@@ -95,28 +96,46 @@ class TextFormatter:
             return
         
         cursor = current_editor.textCursor()
-        char_format = cursor.charFormat()
         
         # منع تحديث الخط التلقائي مؤقتاً
         current_editor.document().blockSignals(True)
         
         if format_type == 'bold':
+            char_format = cursor.charFormat()
             if char_format.fontWeight() == QFont.Bold:
                 char_format.setFontWeight(QFont.Normal)
             else:
                 char_format.setFontWeight(QFont.Bold)
-        elif format_type == 'italic':
-            char_format.setFontItalic(not char_format.fontItalic())
-        elif format_type == 'underline':
-            char_format.setFontUnderline(not char_format.fontUnderline())
-        elif format_type == 'size' and size is not None:
-            char_format.setFontPointSize(size)
-        
-        if cursor.hasSelection():
             cursor.mergeCharFormat(char_format)
-        else:
-            current_editor.setCurrentCharFormat(char_format)
         
+        elif format_type == 'italic':
+            char_format = cursor.charFormat()
+            char_format.setFontItalic(not char_format.fontItalic())
+            cursor.mergeCharFormat(char_format)
+        
+        elif format_type == 'underline':
+            char_format = cursor.charFormat()
+            char_format.setFontUnderline(not char_format.fontUnderline())
+            cursor.mergeCharFormat(char_format)
+        
+        elif format_type == 'size' and size is not None:
+            char_format = cursor.charFormat()
+            char_format.setFontPointSize(size)
+            cursor.mergeCharFormat(char_format)
+        
+        elif format_type.startswith('align_'):
+            block_format = cursor.blockFormat()
+            if format_type == 'align_right':
+                block_format.setAlignment(Qt.AlignRight)
+            elif format_type == 'align_left':
+                block_format.setAlignment(Qt.AlignLeft)
+            elif format_type == 'align_center':
+                block_format.setAlignment(Qt.AlignCenter)
+            elif format_type == 'align_justify':
+                block_format.setAlignment(Qt.AlignJustify)
+            cursor.mergeBlockFormat(block_format)
+        
+        current_editor.setTextCursor(cursor)
         current_editor.setFocus()
         
         # إعادة تفعيل الإشارات

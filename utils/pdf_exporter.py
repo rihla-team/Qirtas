@@ -1,5 +1,6 @@
 from PyQt5.QtPrintSupport import QPrinter
 from PyQt5.QtGui import QTextDocument
+from .syntax_highlighter import CodeHighlighter
 
 class PDFExporter:
     @staticmethod
@@ -10,4 +11,8 @@ class PDFExporter:
         
         document = QTextDocument()
         document.setPlainText(text)
+        
+        highlighter = CodeHighlighter(document)
+        # استخدام highlighter لتطبيق التلوين على المستند
+        
         document.print_(printer)

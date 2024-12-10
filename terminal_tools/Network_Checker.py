@@ -263,7 +263,7 @@ class NetworkQualityChecker(TerminalTool, QObject):
         return output
 
     def log_results(self):
-        self.terminal.append_text("\n--- ت��جيل النتائج ---\n", self.terminal.colors['header'])
+        self.terminal.append_text("\n--- تسجيل النتائج ---\n", self.terminal.colors['header'])
         output = "\n--- تسجيل النتائج ---\n"
         try:
             net_io = psutil.net_io_counters()

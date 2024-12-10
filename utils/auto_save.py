@@ -1,20 +1,44 @@
-from PyQt5.QtCore import QObject
+from PyQt5.QtCore import QObject, QTimer
 import os
+
+class AutoSavePlugin:
+    """الفئة الأساسية للإضافات"""
+    def __init__(self, name, description=""):
+        self.name = name
+        self.description = description
+        self.enabled = True
+    
+    def before_save(self, file_path, content):
+        """تنفيذ قبل الحفظ"""
+        return content
+    
+    def after_save(self, file_path):
+        """تنفيذ بعد الحفظ"""
+        pass
 
 class AutoSaver(QObject):
     def __init__(self, editor):
         super().__init__()
         self.editor = editor
         self.enabled = False
-        self.files_to_save = {}  # قاموس لتخزين الملفات المطلوب حفظها تلقائياً
+        self.files_to_save = {}
+        self.plugins = []  # قائمة الإضافات
         
         if hasattr(editor, 'settings_manager'):
             enabled = editor.settings_manager.get_setting('editor.auto_save.enabled')
             self.enabled = bool(enabled) if enabled is not None else False
         
-        # إضافة مراقبة لفتح الملفات بجميع الطرق
         self.editor.file_opened.connect(self._handle_file_opened)
         self.editor.file_dropped.connect(self._handle_file_dropped)
+    
+    def add_plugin(self, plugin: AutoSavePlugin):
+        """إضافة إضافة جديدة"""
+        if isinstance(plugin, AutoSavePlugin):
+            self.plugins.append(plugin)
+    
+    def remove_plugin(self, plugin_name: str):
+        """إزالة إضافة"""
+        self.plugins = [p for p in self.plugins if p.name != plugin_name]
     
     def _handle_file_opened(self, file_path, editor):
         """معالجة الملفات المفتوحة عن طريق القائمة أو Ctrl+O"""
@@ -40,27 +64,40 @@ class AutoSaver(QObject):
     def schedule_auto_save(self, editor):
         """جدولة الحفظ التلقائي بعد تغيير المحتوى"""
         if self.enabled and editor in self.files_to_save:
-            from PyQt5.QtCore import QTimer
             QTimer.singleShot(1000, lambda: self.save_file(editor))
     
     def save_file(self, editor):
-        """حفظ الملف"""
+        """حفظ الملف مع تطبيق الإضافات"""
         if not self.enabled or editor not in self.files_to_save:
             return
             
         file_path = self.files_to_save[editor]
         try:
+            content = editor.toPlainText()
+            
+            # تطبيق إضافات ما قبل الحفظ
+            for plugin in [p for p in self.plugins if p.enabled]:
+                try:
+                    content = plugin.before_save(file_path, content)
+                except Exception as e:
+                    print(f"خطأ في الإضافة {plugin.name}: {str(e)}")
+            
+            # حفظ الملف
             with open(file_path, 'w', encoding='utf-8') as file:
-                file.write(editor.toPlainText())
+                file.write(content)
             editor.document().setModified(False)
             
-            # تحديث شريط الحالة
-            if hasattr(self.editor, 'statusBar'):
-                self.editor.statusBar().showMessage(f"تم الحفظ التلقائي: {os.path.basename(file_path)}", 2000)
-                
+            # تطبيق إضافات ما بعد الحفظ
+            for plugin in [p for p in self.plugins if p.enabled]:
+                try:
+                    plugin.after_save(file_path)
+                except Exception as e:
+                    print(f"خطأ في الإضافة {plugin.name}: {str(e)}")
+                    
         except Exception as e:
-            self.editor.statusBar().showMessage(f"خطأ في الحفظ التلقائي: {str(e)}", 3000)
-            
+            if hasattr(self.editor, 'statusBar'):
+                self.editor.statusBar().showMessage(f"خطأ في الحفظ التلقائي: {str(e)}", 3000)
+    
     def perform_auto_save(self):
         """تنفيذ عملية الحفظ التلقائي للملف الحالي"""
         if not self.enabled:
@@ -92,7 +129,6 @@ class AutoSaver(QObject):
             if current_title.endswith('*'):
                 self.editor.tab_manager.setTabText(current_tab_index, current_title[:-1])
                 
-            self.editor.statusBar().showMessage(f"تم الحفظ التلقائي: {os.path.basename(current_file)}", 1000)
             return True
             
         except Exception as e:
