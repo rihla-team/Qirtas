@@ -416,7 +416,7 @@ def __init__(self, editor):
         os.makedirs(self.extensions_dir)
         
     # إعداد التسجيل
-    logging.basicConfig(filename='extensions.log', level=logging.INFO)
+    logging.basicConfig(filename='سجلات.log', level=logging.INFO)
     self.logger = logging.getLogger('ExtensionsManager')
 </pre>
         <p><b>الشرح:</b></p>

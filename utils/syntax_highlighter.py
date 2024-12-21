@@ -35,7 +35,7 @@ class CodeHighlighter(QSyntaxHighlighter):
         ]
 
     def format(self, token_type):
-        """إنشاء تنسيق حسب نوع التوكن"""
+        """إنشاء تنسيق حسب نوع الرمز"""
         text_format = QTextCharFormat()
         if token_type == 'keyword':
             text_format.setForeground(QColor("#4EC9B0"))

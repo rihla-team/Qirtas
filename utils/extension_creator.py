@@ -142,10 +142,10 @@ class ExtensionCreator(QDialog):
         platform_layout = QHBoxLayout()
         platform_layout.addWidget(QLabel("أنظمة التشغيل المدعومة:"))
         
-        self.windows_check = QCheckBox("Windows")
+        self.windows_check = QCheckBox("ويندوز")
         self.windows_check.setChecked(True)
-        self.linux_check = QCheckBox("Linux")
-        self.macos_check = QCheckBox("macOS")
+        self.linux_check = QCheckBox("لينكس")
+        self.macos_check = QCheckBox("ماك")
         
         platform_layout.addWidget(self.windows_check)
         platform_layout.addWidget(self.linux_check)

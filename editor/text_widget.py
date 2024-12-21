@@ -35,20 +35,9 @@ class ArabicTextEdit(QTextEdit):
         options.setTextDirection(Qt.RightToLeft)  # تثبيت الاتجاه من اليمين إلى اليسار
         self.document().setDefaultTextOption(options)
 
-        self.setLineWrapMode(QTextEdit.NoWrap)  # التفاف النص بناءً على عرض النافذة
-        self.setWordWrapMode(QTextOption.NoWrap)
         self.setCurrentCharFormat(QTextCharFormat())
         self.setAcceptRichText(True)
-        self.setStyleSheet("""
-            QTextEdit {
-                background-color: #1e1e1e;
-                color: #d4d4d4;
-                border: none;
-                selection-background-color: #264f78;
-                selection-color: #ffffff;
-                white-space: nowrap;  /* تعطيل التفاف النص */
-            }
-        """)
+
     def setup_signals_and_timers(self):
         """إعداد الإشارات والمؤقتات."""
         self.cursorPositionChanged.connect(self.highlight_current_line)
@@ -203,23 +192,162 @@ class ArabicTextEdit(QTextEdit):
         # إضافة قائمة فرعية للتشكيل
         diacritics_menu = context_menu.addMenu('تشكيل')
         
-        diacritics = [
+        # قائمة الحركات الأساسية
+        basic_marks = diacritics_menu.addMenu('الحركات الأساسية')
+        basic_marks_list = [
             ('َ', 'فتحة'),
             ('ُ', 'ضمة'),
             ('ِ', 'كسرة'),
             ('ْ', 'سكون'),
             ('ّ', 'شدة'),
-            ('ً', 'تنوين فتح'),
-            ('ٌ', 'تنوين ضم'),
-            ('ٍ', 'تنوين كسر')
         ]
 
-        for diacritic, name in diacritics:
-            action = QAction(f'{name} ({diacritic})', self)
-            action.triggered.connect(lambda checked, d=diacritic: self.add_diacritic(d))
-            diacritics_menu.addAction(action)
+        # قائمة التنوين
+        tanween_menu = diacritics_menu.addMenu('علامات التنوين')
+        tanween_list = [
+            ('ً', 'تنوين فتح'),
+            ('ٌ', 'تنوين ضم'),
+            ('ٍ', 'تنوين كسر'),
+        ]
 
-        # إضافة خيار إزالة التشكيل
+        # قائمة الهمزات - مع إضافات
+        hamza_menu = diacritics_menu.addMenu('الهمزات')
+        hamza_list = [
+            ('ٔ', 'همزة فوق'),
+            ('ٕ', 'همزة تحت'),
+            ('ء', 'همزة منفردة'),
+            ('أ', 'همزة على الألف'),
+            ('إ', 'همزة تحت الألف'),
+            ('ؤ', 'همزة على الواو'),
+            ('ئ', 'همزة على الياء'),
+        ]
+
+        # قائمة المدود - مع إضافات
+        madd_menu = diacritics_menu.addMenu('علامات المد')
+        madd_list = [
+            ('ٓ', 'إشارة مد'),
+            ('ـ', 'شريط مطول'),
+            ('ۤ', 'علامة المد المتصل'),
+            ('ۥ', 'علامة المد المنفصل'),
+            ('ۦ', 'علامة المد اللازم'),
+            ('ۧ', 'علامة المد العارض للسكون'),
+            ('ۨ', 'علامة المد الصلة'),
+            ('آ', 'ألف ممدودة'),
+            ('ٱ', 'ألف الوصل'),
+        ]
+
+        # قائمة علامات الوقف - مع إضافات
+        waqf_menu = diacritics_menu.addMenu('علامات الوقف')
+        waqf_list = [
+            ('ۖ', 'وقف - الوصل أولى'),
+            ('ۗ', 'وقف - الوقف أولى'),
+            ('ۘ', 'وقف لازم'),
+            ('ۙ', 'ممنوع الوقف'),
+            ('ۚ', 'جائز الوقف'),
+            ('ۛ', 'وقف معانقة'),
+            ('ۜ', 'وقف مع سكت'),
+            ('۠', 'علامة الوقف اللازم'),
+            ('ۡ', 'علامة السكتة الخفيفة'),
+            ('؞', 'علامة وقف التام'),
+            ('؟', 'علامة الوقف الاختياري'),
+            ('٪', 'علامة الوقف المؤقت'),
+        ]
+
+        # قائمة العلامات الصوتية - مع إضافات
+        phonetic_menu = diacritics_menu.addMenu('العلامات الصوتية')
+        phonetic_list = [
+            ('۪', 'علامة التفخيم'),
+            ('۫', 'علامة الترقيق'),
+            ('۬', 'علامة الإمالة'),
+            ('ۭ', 'علامة الإشمام'),
+            ('ۮ', 'علامة الإخفاء'),
+            ('ۯ', 'علامة الإدغام'),
+            ('ۢ', 'علامة الإقلاب'),
+            ('ۣ', 'علامة الإظهار'),
+            ('͗', 'علامة التسهيل'),
+            ('͑', 'علامة التحقيق'),
+            ('᷄', 'علامة النبر القوي'),
+            ('᷅', 'علامة النبر الضعيف'),
+            ('᷆', 'علامة النبر المتوسط'),
+            ('᷇', 'علامة النبر المنخفض'),
+            ('᷈', 'علامة النبر المتغير'),
+            ('᷉', 'علامة النبر الصاعد'),
+        ]
+
+        # قائمة الرموز الخاصة - مع إضافات
+        special_menu = diacritics_menu.addMenu('رموز خاصة')
+        special_list = [
+            ('۝', 'رمز نهاية الآية'),
+            ('۞', 'رمز بداية السورة'),
+            ('۩', 'رمز السجدة'),
+            ('ٰ', 'ألف خنجرية'),
+            ('﷽', 'البسملة'),
+            ('﷼', 'رمز الريال'),
+            ('؎', 'رمز الصلاة على النبي'),
+            ('؏', 'رمز عليه السلام'),
+            ('۞', 'رمز الحزب'),
+            ('۩', 'رمز السجدة'),
+            ('ﷺ', 'صلى الله عليه وسلم'),
+            ('ﷻ', 'جل جلاله'),
+            ('ﷲ', 'لفظ الجلالة'),
+            ('﴾', 'قوس قرآني أيمن'),
+            ('﴿', 'قوس قرآني أيسر'),
+        ]
+
+        # قائمة الحركات المقلوبة - مع إضافات
+        inverted_menu = diacritics_menu.addMenu('الحركات المقلوبة')
+        inverted_list = [
+            ('ٖ', 'كسرة مقلوبة'),
+            ('ٗ', 'ضمة مقلوبة'),
+            ('٘', 'فتحة مقلوبة'),
+            ('ٙ', 'تنوين مقلوب'),
+            ('ٚ', 'سكون مقلوب'),
+        ]
+
+        # قائمة جديدة: علامات التجويد
+        tajweed_menu = diacritics_menu.addMenu('علامات التجويد')
+        tajweed_list = [
+            ('۟', 'علامة الإدغام الشفوي'),
+            ('۠', 'علامة الإدغام المتماثل'),
+            ('ۡ', 'علامة الإدغام المتجانس'),
+            ('ۢ', 'علامة الإدغام المتقارب'),
+            ('ۤ', 'علامة المد الطبيعي'),
+            ('ۧ', 'علامة القلقلة'),
+            ('ۨ', 'علامة التفخيم المطلق'),
+        ]
+
+        # قائمة جديدة: علامات الضبط المصحفي
+        mushaf_menu = diacritics_menu.addMenu('علامات الضبط المصحفي')
+        mushaf_list = [
+            ('۽', 'علامة الروم'),
+            ('۾', 'علامة الإشمام'),
+            ('ۿ', 'علامة التسهيل'),
+            ('ٜ', 'علامة التخفيف'),
+            ('ٝ', 'علامة التثقيل'),
+            ('ٞ', 'علامة التوسط'),
+        ]
+
+        # دالة مساعدة لإضافة العناصر إلى القائمة
+        def add_menu_items(menu, items):
+            for mark, name in items:
+                action = QAction(f'{name} ({mark})', self)
+                action.triggered.connect(lambda checked, d=mark: self.add_diacritic(d))
+                menu.addAction(action)
+
+        # إضافة جميع العناصر إلى القوائم الفرعية
+        add_menu_items(basic_marks, basic_marks_list)
+        add_menu_items(tanween_menu, tanween_list)
+        add_menu_items(hamza_menu, hamza_list)
+        add_menu_items(madd_menu, madd_list)
+        add_menu_items(waqf_menu, waqf_list)
+        add_menu_items(phonetic_menu, phonetic_list)
+        add_menu_items(special_menu, special_list)
+        add_menu_items(inverted_menu, inverted_list)
+        add_menu_items(tajweed_menu, tajweed_list)
+        add_menu_items(mushaf_menu, mushaf_list)
+
+        # إضافة خيار إزالة التشكيل في نهاية القائمة الرئيسية
+        diacritics_menu.addSeparator()
         remove_diacritics_action = QAction('إزالة كل التشكيل', self)
         remove_diacritics_action.triggered.connect(self.remove_all_diacritics)
         diacritics_menu.addAction(remove_diacritics_action)
@@ -227,23 +355,20 @@ class ArabicTextEdit(QTextEdit):
             extension_items = self.main_window.extensions_manager.get_context_menu_items()
             
             if extension_items:
-                # إضافة فاصل قبل عناصر الملحقات
                 context_menu.addSeparator()
-                
-                # تنظيم العناصر حسب الملحق
                 extensions_menu = {}
                 
                 for item in extension_items:
                     ext_id = item.get('extension_id', '')
                     
-                    # إنشاء قائمة فرعية للملحق إذا لم تكن موجودة
-                    if ext_id not in extensions_menu:
-                        ext_name = self.main_window.extensions_manager.extensions[ext_id]['manifest'].get('name', ext_id)
-                        extensions_menu[ext_id] = context_menu.addMenu(ext_name)
-                    
-                    # إنشاء الإجراء
-                    action = self.main_window.extensions_manager.create_context_menu_action(item, extensions_menu[ext_id])
-                    extensions_menu[ext_id].addAction(action)
+                    # تحقق من وجود معرف الملحق قبل استخدامه
+                    if ext_id and ext_id in self.main_window.extensions_manager.extensions:
+                        if ext_id not in extensions_menu:
+                            ext_name = self.main_window.extensions_manager.extensions[ext_id]['manifest'].get('name', ext_id)
+                            extensions_menu[ext_id] = context_menu.addMenu(ext_name)
+                        
+                        action = self.main_window.extensions_manager.create_context_menu_action(item, extensions_menu[ext_id])
+                        extensions_menu[ext_id].addAction(action)
                     
         # عرض القائمة
         context_menu.exec_(event.globalPos())
@@ -277,7 +402,7 @@ class ArabicTextEdit(QTextEdit):
         """إرجاع الحاوية التي تحتوي على المحرر."""
         return self.container
     def apply_font(self, font):
-        """تطبيق الخط على المحرر والنص."""
+        """تطبيق الخط على المحرر و��لنص."""
         if not font:
             return
 

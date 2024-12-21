@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (QMainWindow, QVBoxLayout, 
                            QWidget, QFileDialog, QMessageBox, QAction,
-                           QStatusBar,QFontDialog, QMenu, QSplitter, QHBoxLayout, QPushButton, QLabel,QApplication
+                           QStatusBar,QFontDialog, QTextEdit, QSplitter, QHBoxLayout, QPushButton, QLabel,QToolBar, QDockWidget, QStackedWidget, QProgressDialog
                            )  
 from PyQt5.QtGui import QTextCharFormat
 import os
@@ -8,7 +8,6 @@ from PyQt5.QtCore import Qt, pyqtSignal, QTimer
 from .menu_bar import ArabicMenuBar
 from utils.printer import DocumentPrinter
 from utils.pdf_exporter import PDFExporter
-from utils.tashkeel import ArabicDiacritics
 from utils.setup_shortcuts import ShortcutManager
 from utils.text_tools import TextTools
 from utils.formatting import TextFormatter
@@ -20,6 +19,9 @@ from utils.statistics_manager import StatisticsManager
 from .search_dialog import SearchManager
 from .terminal_widget import  TerminalTabWidget
 from utils.extensions_manager import ExtensionsManager
+from utils.sidebar_manager import SidebarManager
+from utils.update_manager import UpdateManager
+from utils.file_watcher import FileWatcher
 class ArabicEditor(QMainWindow):
     # تعريف الإشارات في بداية الكلاس
     file_opened = pyqtSignal(str, object)
@@ -27,16 +29,25 @@ class ArabicEditor(QMainWindow):
     
     def __init__(self):
         super().__init__()
+        # إضافة مدير التحديثات
+        self.update_manager = UpdateManager()
         self.settings_manager = SettingsManager()
+        
+        # ربط إشارة التحديث المتوفر
+        self.update_manager.update_available.connect(self.show_update_notification)
         
         # تهيئة مدير الاختصارات قبل تحميل الملحقات
         self.shortcut_manager = ShortcutManager(self)
         
-        # تهيئة الواجهة مباشرة (بدلاً من استدعاء setup_ui)
-        self.init_ui()
+        # تهيئة مدير الشريط الجانبي
+        self.sidebar_manager = SidebarManager(self)
+        QTimer.singleShot(100, self._setup_sidebar)
         
-        # تهيئة مدير الملحقات
+        # ثم تهيئة مدير الملحقات
         self.extensions_manager = ExtensionsManager(self)
+        
+        # باقي التهيئة
+        self.init_ui()
         
         # إعداد الاختصارات مرة واحدة فقط بعد تحميل كل شيء
         QTimer.singleShot(100, self._setup_shortcuts)
@@ -58,6 +69,7 @@ class ArabicEditor(QMainWindow):
         
         # ثم إنشاء auto_saver
         self.auto_saver = AutoSaver(self)
+        self.auto_saver.enabled = True  # تفعيل الحفظ التلقائي افتراضياً
         
         # باقي التهيئة
         self.search_dialog = None
@@ -76,11 +88,22 @@ class ArabicEditor(QMainWindow):
         # تطبيق الخط عند بدء التشغيل
         self.apply_font_settings()
         
+        # إضافة مراقبة الملفات
+        self.file_watcher = FileWatcher()
+        self.initialize_settings()
+        # ربط إشارات المراقبة مع المحرر
+        self.file_watcher.content_changed.connect(self._on_external_content_changed)
+        
     def _setup_shortcuts(self):
         """إعداد الاختصارات مرة واحدة"""
         if not hasattr(self, '_shortcuts_setup'):
             self.shortcut_manager.setup_all_shortcuts()
             self._shortcuts_setup = True
+    def _setup_sidebar(self):
+        """إعداد الشريط الجانبي مرة واحدة"""
+        if not hasattr(self, '_sidebar_setup'):
+            self.sidebar_manager.setup_sidebar()
+            self._sidebar_setup = True
         
     def init_ui(self):
         """إعداد واجهة المستخدم"""
@@ -128,7 +151,7 @@ class ArabicEditor(QMainWindow):
         
         # إضافة أزرار التحكم
         controls_layout = QHBoxLayout()
-        split_btn = QPushButton("تقسيم")
+        split_btn = QPushButton("تقسم")
         split_btn.clicked.connect(self.split_terminal)
         minimize_btn = QPushButton("_")
         minimize_btn.clicked.connect(lambda: self.toggle_terminal(False))
@@ -205,14 +228,7 @@ class ArabicEditor(QMainWindow):
         numbers_menu.addAction(to_english)
                 
         # التشكيل
-        diacritics = ArabicDiacritics()
-        diacritics_menu = arabic_tools.addMenu('تشكيل')
-        for diacritic, name in diacritics.diacritics_buttons:
-            action = QAction(f'{name} ({diacritic})', self)
-            action.triggered.connect(
-                lambda checked, d=diacritic: self.add_diacritic(d)
-            )
-            diacritics_menu.addAction(action)
+
             
         # التصحيح التلقائي
 
@@ -221,7 +237,17 @@ class ArabicEditor(QMainWindow):
         export_pdf_action.triggered.connect(self.export_pdf)
         tools_menu.addAction(export_pdf_action)
         
-
+        editor_menu = self.menuBar().addMenu('المحرر')
+        
+        new_text_action = QAction('محرر نصي جديد', self)
+        new_text_action.setShortcut('Ctrl+MN')
+        new_text_action.triggered.connect(lambda: self.tab_manager.new_tab("text"))
+        editor_menu.addAction(new_text_action)
+        
+        new_scintilla_action = QAction('محرر Scintilla جديد', self)
+        new_scintilla_action.setShortcut('Ctrl+Alt+S')
+        new_scintilla_action.triggered.connect(lambda: self.tab_manager.new_tab("scintilla"))
+        editor_menu.addAction(new_scintilla_action)
 
 
         # محاذاة النص
@@ -279,62 +305,61 @@ class ArabicEditor(QMainWindow):
                 self,
                 'اختر ملفاً',
                 '',
-                'كل الملفات (*);;ملفات نصية (*.txt);;ملفات Python (*.py);;ملفات JavaScript (*.js);;ملفات HTML (*.html);;ملفات CSS (*.css);;ملفات JSON (*.json);;ملفات Markdown (*.md);;ملفات XML (*.xml);;ملفات YAML (*.yml);;ملفات SQL (*.sql)'
+                'كل الملفات (*);;ملفات نصية (*.txt);;ملفات أصلة (*.py);;ملفات جافاسكريبت (*.js);;ملفات اتش تي ام ال (*.html);;ملفات سي اس اس (*.css);;ملفات جسون (*.json);;ملفات ماركداون (*.md);;ملفات اكس ام ال (*.xml);;ملفات يامل (*.yml);;ملفات الاستعلامات المهيكلة (*.sql)'
             )
         
         if file_path:
             try:
-                # التحقق من حجم الملف
-                file_size = os.path.getsize(file_path)
-                size_limit = 10 * 1024 * 1024  # 10 ميجابايت
+                # قراءة الملف وتحديد نوع نهاية الأسطر
+                with open(file_path, 'rb') as file:  # قراءة الملف في الوضع الثنائي
+                    content = file.read()
                 
-                if file_size > size_limit:
-                    response = QMessageBox.warning(
-                        self,
-                        "تنبيه",
-                        f"حجم الملف كبير ({self._format_size(file_size)}). قد يستغرق الفتح بعض الوقت. هل تريد المتابعة؟",
-                        QMessageBox.Yes | QMessageBox.No
-                    )
-                    if response == QMessageBox.No:
-                        return
-
-                # قراءة الملف بشكل تدريجي
-                editor = self.tab_manager.new_tab()
-                cursor = editor.textCursor()
+                # تحديد الترميز
+                encoding = 'utf-8'
+                try:
+                    content.decode('utf-8')
+                except UnicodeDecodeError:
+                    try:
+                        content.decode('utf-8-sig')
+                        encoding = 'utf-8-sig'
+                    except UnicodeDecodeError:
+                        encoding = 'utf-16'
                 
-                with open(file_path, 'r', encoding='utf-8') as file:
-                    chunk_size = 1024 * 1024  # 1 ميجابايت
-                    while True:
-                        chunk = file.read(chunk_size)
-                        if not chunk:
-                            break
-                        # تعديل النص بإضافة الحرف الخفي
-                        modified_chunk = editor.add_hidden_char_after_quotes(chunk)
-                        cursor.insertText(modified_chunk)
-                        QApplication.processEvents()  # السماح بتحديث الواجهة
-                        content = file.read()
+                # تحديد نوع نهاية الأسطر
+                text = content.decode(encoding)
+                if '\r\n' in text:
+                    line_ending = '\r\n'
+                elif '\r' in text:
+                    line_ending = '\r'
+                else:
+                    line_ending = '\n'
                 
-                # تعديل النص بإضافة الحرف الخفي
-                modified_content = editor.add_hidden_char_after_quotes(content)
-                editor.setPlainText(modified_content)
-
-                # تعيين مسار الملف في المحرر
+                # تحديث المؤشرات في شريط الحالة
+                self.statistics_manager.current_encoding = encoding
+                self.statistics_manager.current_line_ending = line_ending
+                self.statistics_manager.encoding_label.setText(encoding)
+                ending_text = "CRLF" if line_ending == "\r\n" else "LF" if line_ending == "\n" else "CR"
+                self.statistics_manager.line_ending_label.setText(ending_text)
+                
+                # إنشاء محرر جديد وتحميل المحتوى
+                editor = self.create_editor()
+                editor.setPlainText(text)
                 editor.file_path = file_path
-                self.tab_manager.setTabText(
-                    self.tab_manager.currentIndex(), 
-                    os.path.basename(file_path)
-                )
-                editor.document().setModified(False)
-
-                return editor
+                
+                # إضافة التبويب الديد
+                file_name = os.path.basename(file_path)
+                index = self.tab_manager.addTab(editor, file_name)
+                self.tab_manager.setCurrentIndex(index)
+                
+                return True
                 
             except Exception as e:
                 QMessageBox.critical(
                     self,
-                    "خطأ",
+                    "طأ",
                     f"حدث خطأ أثناء فتح الملف: {str(e)}"
                 )
-                return None
+                return False
 
     def _format_size(self, size):
         """تنسيق حجم الملف"""
@@ -356,7 +381,7 @@ class ArabicEditor(QMainWindow):
             return False
 
     def save_file(self):
-        """حفظ الملف الحالي"""
+        """فظ الملف لحالي"""
         current_editor = self.tab_manager.get_current_editor()
         if not current_editor:
             return False
@@ -367,18 +392,34 @@ class ArabicEditor(QMainWindow):
             return self.save_file_as()
         
         try:
-            # حفظ الملف بشكل تدريجي
+            # الحصول على النص والإعدادات
             text = current_editor.toPlainText()
-            chunk_size = 1024 * 1024  # 1 ميجابايت
             
-            with open(file_path, 'w', encoding='utf-8') as file:
-                for i in range(0, len(text), chunk_size):
-                    chunk = text[i:i + chunk_size]
-                    file.write(chunk)
-                    QApplication.processEvents()  # السماح بتحديث الواجهة
+            # الحصول على نوع نهاية الأسطر من StatisticsManager
+            line_ending = getattr(self.statistics_manager, 'current_line_ending', '\n')
+            encoding = getattr(self.statistics_manager, 'current_encoding', 'UTF-8')
+            
+            # تحويل كل نهايات الأسطر إلى النوع المطلوب
+            text = text.replace('\r\n', '\n')  # تحويل كل CRLF إلى LF أولاً
+            text = text.replace('\r', '\n')    # تحويل كل CR إلى LF
+            if line_ending != '\n':
+                text = text.replace('\n', line_ending)  # تحوي إلى نوع نهاية الأسطر المطلوب
+            
+            # حفظ الملف مع الترميز المحدد
+            with open(file_path, 'wb') as file:
+                # تحويل النص إلى بايتات مع الترميز المحدد
+                content = text.encode(encoding)
+                file.write(content)
             
             current_editor.document().setModified(False)
             self.statusBar().showMessage(f"تم الحفظ: {file_path}", 2000)
+            
+            # تحديث مؤشرات شريط الحالة
+            if hasattr(self, 'statistics_manager'):
+                ending_text = "CRLF" if line_ending == "\r\n" else "LF" if line_ending == "\n" else "CR"
+                self.statistics_manager.line_ending_label.setText(ending_text)
+                self.statistics_manager.encoding_label.setText(encoding)
+            
             return True
             
         except Exception as e:
@@ -408,17 +449,47 @@ class ArabicEditor(QMainWindow):
             return False
         
         try:
-            with open(file_name, 'w', encoding='utf-8') as file:
-                file.write(current_editor.toPlainText())
+            # قراءة النص من المحرر
+            text = current_editor.toPlainText()
+            
+            # الحصول على إعدادات الترميز ونهاية الأسطر
+            line_ending = getattr(self.statistics_manager, 'current_line_ending', '\n')
+            encoding = getattr(self.statistics_manager, 'current_encoding', 'UTF-8')
+            
+            # قراءة الملف الحالي إذا كان موجوداً لمعرفة نوع نهاية الأسطر
+            if os.path.exists(file_name):
+                with open(file_name, 'rb') as file:
+                    content = file.read()
+                    if b'\r\n' in content:
+                        line_ending = '\r\n'
+                    elif b'\n' in content:
+                        line_ending = '\n'
+            
+            # تحويل النص إلى بايتات مع نهاية الأسطر المناسبة
+            lines = text.split('\n')
+            binary_content = line_ending.join(lines).encode(encoding)
+            
+            # حفظ الملف كبيانات ثنائية
+            with open(file_name, 'wb') as file:
+                file.write(binary_content)
+                
             current_editor.document().setModified(False)
             self.statusBar().showMessage(f"تم الحفظ: {file_name}", 2000)
+            
+            # تحديث مؤشرات شريط الحالة
+            if hasattr(self, 'statistics_manager'):
+                ending_text = "CRLF" if line_ending == "\r\n" else "LF"
+                self.statistics_manager.line_ending_label.setText(ending_text)
+                self.statistics_manager.encoding_label.setText(encoding)
+                
             return True
+            
         except Exception as e:
             QMessageBox.critical(self, "خطأ", f"حدث خطأ أثناء حفظ الملف: {str(e)}")
             return False
 
     def show_search_dialog(self):
-        """عرض نافذة البحث"""
+        """عرض نافذة ابحث"""
         self.search_manager.show_search_dialog()
 
     def show_replace_dialog(self):
@@ -435,7 +506,7 @@ class ArabicEditor(QMainWindow):
             self.search_dialog.find()
 
     def find_previous(self):
-        """البحث عن التطابق السابق"""
+        """البحث عن التطابق الساق"""
         if self.search_dialog and self.search_dialog.last_search:
             self.search_dialog.find(backward=True)
 
@@ -485,7 +556,7 @@ class ArabicEditor(QMainWindow):
                 current_editor.setFocus()
 
     def apply_arabic_format(self, size, bold=False):
-        """تطبيق تنسيق عربي محدد"""
+        """تطبيق تنسيق عربي محد��"""
         self.text_formatter.format_text('size', size=size)
         if bold:
             self.text_formatter.format_text('bold')
@@ -528,7 +599,7 @@ class ArabicEditor(QMainWindow):
             if text_edit and text_edit.document().isModified():
                 file_name = self.tab_manager.tabText(index)
                 
-                # إنشاء مربع حوار مخصص
+                # إنشاء مربع حار مخصص
                 msg_box = QMessageBox()
                 msg_box.setWindowTitle("تنبيه")
                 msg_box.setText(f"هناك تغييرات غير مفوظة في {file_name}. هل تريد حفظها؟")
@@ -568,7 +639,7 @@ class ArabicEditor(QMainWindow):
         ret = QMessageBox.warning(
             self,
             "محرر رحلة",
-            "تم تعديل المستن.\nهل تريد حفظ التغييرات؟",
+            "تم تعديل المستند.\nهل تريد حفظ التغييرات؟",
             QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel
         )
         
@@ -621,7 +692,7 @@ class ArabicEditor(QMainWindow):
                 widget.deleteLater()
                 self.terminal_layout.removeWidget(widget)
         
-        # إنشاء مدير التبويبات
+        # إنشاء مدير اتبويبات
         self.terminal_tabs = TerminalTabWidget(self)
         self.terminal_layout.addWidget(self.terminal_tabs)
         
@@ -707,4 +778,167 @@ class ArabicEditor(QMainWindow):
         # تحديث الإحصائيات
         self.update_status()
 
+    def show_update_notification(self, version):
+        """عرض إشعار عند توفر تحديث جديد"""
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Information)
+        msg.setWindowTitle("تحديث جديد متوفر")
+        msg.setText(f"تم العثور على إصدار جديد: {version}")
+        msg.setInformativeText("هل تريد تنزيل التحديث الآن؟")
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         
+        if msg.exec_() == QMessageBox.Yes:
+            self.download_update(version)
+    
+    def download_update(self, version):
+        """تنزيل وتثبيت التحديث"""
+        # إنشاء نافذة التقدم
+        progress = QProgressDialog("جاري تنزيل التحديث...", "إلغاء", 0, 100, self)
+        progress.setWindowModality(Qt.WindowModal)
+        
+        def update_progress(value):
+            progress.setValue(value)
+        
+        self.update_manager.update_progress.connect(update_progress)
+        
+        # تنزيل التحديث
+        destination = os.path.join(os.path.dirname(__file__), f"update_{version}.zip")
+        if self.update_manager.download_update(version, destination):
+            QMessageBox.information(self, "اكتمل التنزيل", 
+                                  "تم تنزيل التحديث بنجاح. سيتم تثبيته عند إعادة تشغيل التطبيق.")
+
+    def setup_auto_update_timer(self, update_settings):
+        """إعداد مؤقت التحديث التلقائي"""
+        if hasattr(self, 'update_timer') and self.update_timer:
+            self.update_timer.stop()
+        
+        if update_settings.get('auto_check', True):
+            self.update_timer = QTimer(self)
+            self.update_timer.timeout.connect(self.check_for_updates)
+            
+            # تحديد الفترة بالمللي ثانية (مع مراعاة الحد الأقصى)
+            interval_map = {
+                'يومياً': 86400000,     # يوم (24 ساعة)
+                'أسبوعياً': 604800000,  # أسبوع (7 أيام)
+                'شهرياً': 2147483647    # أقصى قيمة مسموح بها (حوالي 24.8 يوم)
+            }
+            
+            check_interval = update_settings.get('check_interval', 'يومياً')
+            interval = interval_map.get(check_interval, 86400000)
+            
+            # إذا كان الفاصل شهرياً، نقوم بتقسيم الفترة إلى أجزاء
+            if check_interval == 'شهرياً':
+                # نضبط المؤقت ليعمل ل أسبوع بدلاً من كل شهر
+                interval = 604800000  # أسبوع
+                
+            self.update_timer.start(interval)
+            
+            # التحقق من التحديثات مباشرة عند التفعيل
+            QTimer.singleShot(1000, self.check_for_updates)  # تأخير بسيط قبل الفحص الأول
+
+    def check_for_updates(self):
+        """التحقق من وجود تحديثات جديدة"""
+        try:
+            update_info = self.update_manager.check_for_updates()
+            if update_info and isinstance(update_info, dict):
+                if 'error' in update_info:
+                    # عرض رسالة الخطأ للمستخدم
+                    QMessageBox.information(self, 'التحديثات', update_info['message'])
+                elif 'version' in update_info:
+                    # عرض إشعار التحديث
+                    self.show_update_notification(update_info['version'])
+        except Exception as e:
+            self.logger.error(f"خطأ في التحقق من التحديثات: {str(e)}")
+            QMessageBox.warning(self, 'خطأ', 'حدث خطأ أثناء التحقق من التحديثات')
+
+    def _handle_external_file_change(self, file_path):
+        """معالجة التغييرات الخادجية في الملف"""
+        current_editor = self.tab_manager.get_current_editor()
+        if not current_editor:
+            return
+
+        from PyQt5.QtWidgets import QMessageBox
+        reply = QMessageBox.question(
+            self,
+            "تم تعديل الملف",
+            "تم تعديل الملف من خارج المحرر.\nهل تريد إعادة تحميله؟",
+            QMessageBox.Yes | QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            try:
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    content = file.read()
+                    current_editor.setPlainText(content)
+                    current_editor.document().setModified(False)
+            except Exception as e:
+                QMessageBox.warning(
+                    self,
+                    "خطأ",
+                    f"حدث خطأ أثناء إعادة تحميل الملف:\n{str(e)}"
+                )
+
+    def _on_external_content_changed(self, file_path, new_content):
+        """معالجة التغييرات الخارجية في الملف"""
+        current_editor = self.tab_manager.get_current_editor()
+        if current_editor and not current_editor.document().isModified():
+            current_editor.setPlainText(new_content)
+            current_editor.document().setModified(False)
+
+    def initialize_settings(self):
+        """تهيئة وتطبيق الإعدادات عند بدء التشغيل"""
+        settings = self.settings_manager.load_settings()
+        
+        # تطبيق إعدادات التبويبات
+        tabs_settings = settings.get('tabs', {})
+        self.tab_manager.setMovable(tabs_settings.get('movable', True))
+        self.tab_manager.setUsesScrollButtons(tabs_settings.get('scroll_buttons', True))
+        
+        elide_mode_map = {
+            'middle': Qt.ElideMiddle,
+            'right': Qt.ElideRight,
+            'left': Qt.ElideLeft,
+            'none': Qt.ElideNone
+        }
+        self.tab_manager.setElideMode(elide_mode_map[tabs_settings.get('elide_mode', 'middle')])
+        self.tab_manager.max_closed_tabs = tabs_settings.get('max_closed_tabs', 10)
+        
+        # تطبيق إعدادات الحفظ التلقائي
+        if hasattr(self, 'auto_saver'):
+            auto_save_settings = settings.get('editor', {}).get('auto_save', {})
+            self.auto_saver.enabled = auto_save_settings.get('enabled', False)
+            self.auto_saver.interval = auto_save_settings.get('interval', 5)
+        
+        # تطبيق إعدادات التحديث التلقائي
+        if hasattr(self, 'update_manager'):
+            self.setup_auto_update_timer(settings.get('updates', {}))
+        
+        # تطبيق السمة
+        theme = settings.get('editor', {}).get('theme', 'light')
+        if hasattr(self, 'apply_theme'):
+            self.apply_theme(theme)
+        
+        # تطبيق التفاف النص
+        word_wrap = settings.get('editor', {}).get('word_wrap', False)
+        for i in range(self.tab_manager.count()):
+            editor = self.tab_manager.widget(i).findChild(QTextEdit)
+            if editor:
+                editor.setLineWrapMode(
+                    QTextEdit.WidgetWidth if word_wrap else QTextEdit.NoWrap
+                )
+
+    def open_folder(self):
+        """فتح مجلد في المحرر"""
+        folder_path = QFileDialog.getExistingDirectory(
+            self,
+            'اختر مجلداً',
+            '',
+            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks
+        )
+        
+        if folder_path:
+            # إرسال إشارة إلى مدير الملفات الجانبي
+            if hasattr(self, 'extensions_manager'):
+                for ext_id, extension in self.extensions_manager.active_extensions.items():
+                    if hasattr(extension, 'on_folder_open'):
+                        extension.on_folder_open(folder_path)

@@ -3,27 +3,31 @@ from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                            QScrollArea, QWidget, QPushButton, QCheckBox,
                            QTabWidget, QTextBrowser, QGroupBox, QGridLayout,
                            QLineEdit, QMenu, QAction, QMessageBox,QApplication,
-                           QStyle, QToolButton, QTextEdit, QComboBox, QFormLayout,
-                           QMainWindow, QProgressDialog, QTimeEdit, QFileDialog )
+                            QToolButton, QTextEdit, QComboBox, QFormLayout,
+                           QMainWindow, QProgressDialog, QTimeEdit, QFileDialog,QFrame )
 from PyQt5.QtCore import Qt, QTimer,QTime
-from PyQt5.QtGui import  QPixmap,  QImage
+from PyQt5.QtGui import  QPixmap,  QIcon, QMovie
 import os
 import json
 import logging
 import importlib.util
 import sys
-import uuid
 from .extension_store import ExtensionStore
 import requests
 from PyQt5.QtCore import QUrl
 from PyQt5.QtGui import QDesktopServices
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta
 import semver
 from PyQt5.QtCore import QSettings
 import zipfile
-import tempfile
-import time
+from .arabic_logger import setup_arabic_logging
+import asyncio
+import aiohttp
+import subprocess
+import pkg_resources
+
+setup_arabic_logging()
 
 class ExtensionManagerDialog(QMainWindow):
     _instance = None  # متغير ثابت لحفظ النسخة الوحيدة
@@ -40,7 +44,6 @@ class ExtensionManagerDialog(QMainWindow):
         # تعيين النافذة كمستقلة
         self.setWindowFlags(Qt.Window)
         self.setAttribute(Qt.WA_DeleteOnClose, False)  # منع حذف النافذة عند الإغلاق
-        
         self.extensions_manager = extensions_manager
         self.checkboxes = {}
         self.extension_widgets = {}
@@ -49,7 +52,10 @@ class ExtensionManagerDialog(QMainWindow):
         # إعداد النافذة
         self.setWindowTitle("مدير الإضافات")
         self.setMinimumSize(900, 700)
-        self.setWindowIcon(self.style().standardIcon(QStyle.SP_DialogHelpButton))
+        try:
+            self.setWindowIcon(QIcon(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'icons', 'extensions.png')))
+        except Exception as e:
+            pass  # تجاهل أي خطأ في تحميل الأيقونة
         
         # إضافة متغيرات للتتبع
         self.current_filter = "الكل"
@@ -67,10 +73,20 @@ class ExtensionManagerDialog(QMainWindow):
         # حفظ حالة النافذة
         self.settings = QSettings('Qirtas', 'ExtensionManager')
         self.restore_window_state()
+        
 
     def setup_style(self):
-        """إعداد النمط والألوان"""
-
+        """إعداد نمط النافذة"""
+        try:
+            style_path = os.path.join('resources', 'styles', 'extension_manager.qss')
+            if os.path.exists(style_path):
+                with open(style_path, 'r', encoding='utf-8') as f:
+                    self.setStyleSheet(f.read())
+                    self.extensions_manager.log_message(f"تم تحميل ملف التنسيق: {style_path}")
+            else:
+                self.extensions_manager.log_message(f"ملف التنسيق غير موجود: {style_path}", "WARNING")
+        except Exception as e:
+            self.extensions_manager.log_message(f"خطأ في تحميل ملف التنسيق: {str(e)}", "ERROR")
 
     def setup_ui(self):
         """إعداد واجهة المستخدم"""
@@ -152,7 +168,7 @@ class ExtensionManagerDialog(QMainWindow):
             self.refresh_extensions()  # تحديث قائمة الإضافات بعد الإنشاء
 
     def setup_store_tab(self, tab):
-        """إعداد تبويب متج�� الإضافات"""
+        """إعداد تبويب متجر الإضافات"""
         layout = QVBoxLayout()
         layout.setSpacing(10)
         layout.setContentsMargins(10, 10, 10, 10)
@@ -162,7 +178,10 @@ class ExtensionManagerDialog(QMainWindow):
         
         # زر التحديث
         refresh_btn = QPushButton("تحديث")
-        refresh_btn.setIcon(self.style().standardIcon(QStyle.SP_BrowserReload))
+        try:
+            refresh_btn.setIcon(QIcon(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'icons', 'refresh.png')))
+        except Exception as e:
+            pass  # تجاهل أي خطأ في تحميل الأيقونة
         refresh_btn.clicked.connect(self.load_store_extensions)
         refresh_btn.setStyleSheet("""
             QPushButton {
@@ -226,9 +245,16 @@ class ExtensionManagerDialog(QMainWindow):
         """معالجة تغيير التبويب"""
         if self.tab_widget.tabText(index) == "متجر الإضافات":
             self.load_store_extensions()
-
+    def show_extension_creator(self):
+        """الانتقال إلى تبويب إنشاء إضافة جديدة"""
+        # البحث عن تبويب إنشاء إضافة
+        for i in range(self.tab_widget.count()):
+            if self.tab_widget.tabText(i) == "إنشاء إضافة":
+                # تغيير التبويب الحالي
+                self.tab_widget.setCurrentIndex(i)
+                break
     def load_store_extensions(self):
-        """تح��يل وعرض الإضافات ا��متوفرة في المتجر"""
+        """تحميل وعرض الإضافات المتوفرة في المتجر"""
         # مسح العناصر السابقة
         for i in reversed(range(self.store_layout.count())):
             widget = self.store_layout.itemAt(i).widget()
@@ -256,27 +282,109 @@ class ExtensionManagerDialog(QMainWindow):
             loading_label.setParent(None)
             
             if extensions:
+                # تجميع الإضافات حسب الإصدار
+                version_groups = {}
                 for ext in extensions:
-                    ext_widget = self.create_store_extension_widget(ext)
-                    self.store_layout.addWidget(ext_widget)
+                    version = ext.get('version', 'غير محدد')
+                    if version not in version_groups:
+                        version_groups[version] = []
+                    version_groups[version].append(ext)
+                
+                # إنشاء مجموعات للإصدارات
+                for version, exts in sorted(version_groups.items(), reverse=True):
+                    # إنشاء عنوان للإصدار
+                    version_label = QLabel(f"الإصدار {version}")
+                    version_label.setStyleSheet("""
+                        QLabel {
+                            color: #ffffff;
+                            background-color: #054229;
+                            padding: 10px;
+                            border-radius: 4px;
+                            font-weight: bold;
+                            margin-top: 15px;
+                        }
+                    """)
+                    self.store_layout.addWidget(version_label)
+                    
+                    # إضافة الإضافات لهذا الإصدار
+                    for ext in exts:
+                        ext_widget = self.create_store_extension_widget(ext)
+                        self.store_layout.addWidget(ext_widget)
+                    
+                    # إضافة خط فاصل
+                    line = QFrame()
+                    line.setFrameShape(QFrame.HLine)
+                    line.setStyleSheet("background-color: #333333;")
+                    self.store_layout.addWidget(line)
             else:
-                # إضافة رسالة إذا لم يتم العثور على إضافات
-                msg = QLabel("لم يتم العثور على إضافات متاحة") 
-                msg.setAlignment(Qt.AlignCenter)
-                msg.setStyleSheet("""
+                # إنشاء رسالة عدم وجود إضافات مع تصميم جذاب
+                no_ext_widget = QWidget()
+                no_ext_layout = QVBoxLayout()
+                
+                # أيقونة
+                icon_label = QLabel()
+                icon_label.setPixmap(QIcon(os.path.join('resources', 'icons', 'store.png')).pixmap(64, 64))
+                icon_label.setAlignment(Qt.AlignCenter)
+                no_ext_layout.addWidget(icon_label)
+                
+                # رسالة رئيسية
+                msg_label = QLabel("لا توجد إضافات متاحة حالياً لهذا الإصدار")
+                msg_label.setAlignment(Qt.AlignCenter)
+                msg_label.setStyleSheet("""
                     QLabel {
                         color: #888888;
-                        padding: 20px;
+                        font-size: 16px;
+                        font-weight: bold;
+                        margin: 10px;
+                    }
+                """)
+                no_ext_layout.addWidget(msg_label)
+                
+                # رسالة فرعية
+                sub_msg = QLabel("يمكنك إنشاء إضافة جديدة أو الانتظار حتى تتوفر إضافات جديدة")
+                sub_msg.setAlignment(Qt.AlignCenter)
+                sub_msg.setWordWrap(True)
+                sub_msg.setStyleSheet("""
+                    QLabel {
+                        color: #666666;
                         font-size: 14px;
                     }
                 """)
-                self.store_layout.addWidget(msg)
+                no_ext_layout.addWidget(sub_msg)
+                
+                # زر إنشاء إضافة جديدة
+                create_btn = QPushButton("إنشاء إضافة جديدة")
+                create_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #054229;
+                        color: white;
+                        padding: 10px 20px;
+                        border-radius: 4px;
+                        margin-top: 15px;
+                    }
+                    QPushButton:hover {
+                        background-color: #065435;
+                    }
+                """)
+                create_btn.clicked.connect(self.show_extension_creator)
+                no_ext_layout.addWidget(create_btn)
+                
+                no_ext_widget.setLayout(no_ext_layout)
+                self.store_layout.addWidget(no_ext_widget)
         
         except Exception as e:
-            # إزالة مؤشر ال��حميل
+            # إزالة مؤشر التحميل
             loading_label.setParent(None)
             
             # إظهار رسالة الخطأ
+            error_widget = QWidget()
+            error_layout = QVBoxLayout()
+            
+            error_icon = QLabel()
+            error_icon.setPixmap(QIcon(os.path.join('resources', 'icons', 'error.png')).pixmap(48, 48))
+            error_icon.setAlignment(Qt.AlignCenter)
+            error_layout.addWidget(error_icon)
+            
             error_msg = QLabel(f"حدث خطأ أثناء تحميل الإضافات:\n{str(e)}")
             error_msg.setAlignment(Qt.AlignCenter)
             error_msg.setStyleSheet("""
@@ -286,7 +394,25 @@ class ExtensionManagerDialog(QMainWindow):
                     font-size: 14px;
                 }
             """)
-            self.store_layout.addWidget(error_msg)
+            error_layout.addWidget(error_msg)
+            
+            retry_btn = QPushButton("إعادة المحاو��ة")
+            retry_btn.clicked.connect(self.load_store_extensions)
+            retry_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #054229;
+                    color: white;
+                    padding: 8px 16px;
+                    border-radius: 4px;
+                }
+                QPushButton:hover {
+                    background-color: #065435;
+                }
+            """)
+            error_layout.addWidget(retry_btn)
+            
+            error_widget.setLayout(error_layout)
+            self.store_layout.addWidget(error_widget)
 
     def search_store(self, query):
         """البحث في المتجر"""
@@ -355,18 +481,18 @@ class ExtensionManagerDialog(QMainWindow):
         settings_group.setLayout(settings_layout)
         layout.addWidget(settings_group)
         
-        # إعدادات GitHub
-        github_group = QGroupBox("إعدادات GitHub")
+        # إعدادات جيت هاب
+        github_group = QGroupBox("إعدادات جيت هاب")
         github_layout = QVBoxLayout()
         
         token_layout = QHBoxLayout()
-        token_layout.addWidget(QLabel("GitHub Token:"))
+        token_layout.addWidget(QLabel("رمز جيت هاب :"))
         self.token_input = QLineEdit()
         self.token_input.setEchoMode(QLineEdit.Password)
         token_layout.addWidget(self.token_input)
         
-        # زر اختبار التوكن
-        test_token_btn = QPushButton("اختبار التوكن")
+        # زر اختبار الرمز
+        test_token_btn = QPushButton("اختبار الرمز")
         test_token_btn.clicked.connect(self.test_github_token)
         token_layout.addWidget(test_token_btn)
         
@@ -383,26 +509,25 @@ class ExtensionManagerDialog(QMainWindow):
         
         layout.addLayout(buttons_layout)
         layout.addStretch()
-        
         tab.setLayout(layout)
         
         # تحميل الإعدادات المحفوظة
         self.load_advanced_settings()
 
     def test_github_token(self):
-        """اختبار توكن GitHub"""
+        """اختبار رمز جيت هاب"""
         token = self.token_input.text().strip()
         if not token:
-            QMessageBox.warning(self, "خطأ", "الرجاء إدخال التوكن أولاً")
+            QMessageBox.warning(self, "خطأ", "الرجاء إدخال الرمز أولاً")
             return
         
-        # إنشاء نافذة تقدم العملية
-        progress = QProgressDialog("جاري اختبار التوكن...", None, 0, 0, self)
+        # إنشاء ن��فذة تقدم العملية
+        progress = QProgressDialog("جاري اختبار الرمز...", None, 0, 0, self)
         progress.setWindowModality(Qt.WindowModal)
         progress.show()
         
         try:
-            # اختبار التوكن باستخدام GitHub API
+            # اختبار الرمز باستخدا�� جيت هاب API
             headers = {'Authorization': f'token {token}'}
             response = requests.get('https://api.github.com/rate_limit', headers=headers)
             
@@ -414,7 +539,7 @@ class ExtensionManagerDialog(QMainWindow):
                 
                 # إنشاء رسالة مفصلة
                 message = (
-                    "✅ تم التحقق من التوكن بنجاح\n\n"
+                    "✅ تم التحقق من الرمز بنجاح\n\n"
                     f"📊 الطلبات المتبقية: {remaining}/{limit}\n"
                     f"🕒 يتم إعادة تعيين الحد في: {reset_time}"
                 )
@@ -423,55 +548,58 @@ class ExtensionManagerDialog(QMainWindow):
                 if remaining < 100:
                     message = f"⚠️ {message}\n\n⚠️ تحذير: عدد الطلبات المتبقية منخفض!"
                 
-                QMessageBox.information(self, "نتيجة اختبار التوكن", message)
+                QMessageBox.information(self, "نتيجة اختبار الرمز", message)
             else:
                 error_msg = response.json().get('message', 'خطأ غير معروف')
                 QMessageBox.warning(
                     self, 
                     "خطأ", 
-                    f"❌ فشل التحقق من التوكن:\n{error_msg}"
+                    f"❌ فشل التحقق من الرمز:\n{error_msg}"
                 )
         
         except Exception as e:
             QMessageBox.critical(
                 self, 
                 "خطأ", 
-                f"❌ حدث خطأ أثناء اختبار التوكن:\n{str(e)}"
+                f"❌ حدث خطأ أثناء اختبار الرمز:\n{str(e)}"
             )
         
         finally:
             progress.close()
 
     def save_advanced_settings(self):
-        """حفظ الإعدادات المتقدم��"""
+        """حفظ الإعدادات المتقدمة"""
         try:
             settings_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'settings.json')
+            
+            # قراءة الإعدادات الحالية
             if os.path.exists(settings_path):
                 with open(settings_path, 'r', encoding='utf-8') as f:
                     settings = json.load(f)
-                    
-                extensions_settings = settings.get('extensions', {})
+            else:
+                settings = {}
                 
-                # تحميل الإعدادات العامة
-                self.auto_update_checkbox.setChecked(extensions_settings.get('auto_update', False))
-                self.update_interval_combo.setCurrentText(extensions_settings.get('update_interval', 'يومياً'))
-                self.update_time_edit.setTime(QTime.fromString(extensions_settings.get('update_time', '00:00'), "hh:mm"))
+            # إنشاء قسم الإضافات إذا لم يكن موجوداً
+            if 'extensions' not in settings:
+                settings['extensions'] = {}
                 
-                # تحميل التوكن
-                github_token = settings.get('github_token') or extensions_settings.get('github_token', '')
-                self.token_input.setText(github_token)
+            # تحديث الإعدادات
+            settings['extensions'].update({
+                'auto_update': self.auto_update_checkbox.isChecked(),
+                'update_interval': self.update_interval_combo.currentText(),
+                'update_time': self.update_time_edit.time().toString("hh:mm"),
+                'github_token': self.token_input.text().strip()
+            })
+            
+            # حفظ الإعدادات في الملف
+            os.makedirs(os.path.dirname(settings_path), exist_ok=True)
+            with open(settings_path, 'w', encoding='utf-8') as f:
+                json.dump(settings, f, indent=4, ensure_ascii=False)
                 
-                # تحميل حالة الإضافات
-                enabled_dict = extensions_settings.get('enabled', {})
-                for ext_id, is_enabled in enabled_dict.items():
-                    if not is_enabled and ext_id in self.extensions_manager.active_extensions:
-                        self.extensions_manager.deactivate_extension(ext_id)
-                    elif is_enabled and ext_id not in self.extensions_manager.active_extensions:
-                        self.extensions_manager.activate_extension(ext_id)
-                
-                    
+            QMessageBox.information(self, "نجاح", "تم حفظ الإعدادات بنجاح")
+            
         except Exception as e:
-            QMessageBox.warning(self, "خطأ", f"حدث خطأ أثناء تحميل الإعدادات: {str(e)}")
+            QMessageBox.critical(self, "خطأ", f"حدث خطأ أثناء حفظ الإعدادات: {str(e)}")
 
     def load_advanced_settings(self):
         """تحميل الإعدادات المتقدمة"""
@@ -488,7 +616,7 @@ class ExtensionManagerDialog(QMainWindow):
                 self.update_interval_combo.setCurrentText(extensions_settings.get('update_interval', 'يومياً'))
                 self.update_time_edit.setTime(QTime.fromString(extensions_settings.get('update_time', '00:00'), "hh:mm"))
                 
-                # تحميل التوكن
+                # تحميل الرمز
                 github_token = settings.get('github_token') or extensions_settings.get('github_token', '')
                 self.token_input.setText(github_token)
                 
@@ -584,29 +712,35 @@ class ExtensionManagerDialog(QMainWindow):
     def disable_all_extensions(self):
         """تعطيل جميع الإضافات"""
         success_count = 0
-        fail_count = 0
+        failed_extensions = []
         
-        for ext_id in list(self.extensions_manager.active_extensions):  # نسخة من القائمة
+        for ext_id in list(self.extensions_manager.active_extensions):
             try:
                 if self.extensions_manager.deactivate_extension(ext_id):
                     success_count += 1
                     if ext_id in self.checkboxes:
                         self.checkboxes[ext_id].setChecked(False)
                     self.update_extension_status(ext_id)
-            except Exception as e:
-                fail_count += 1
-                logging.error(f"فشل تعطيل الإضافة {ext_id}: {str(e)}")
-        
+            except:
+                # تجميع أسماء الإضافات التي فشل تعطيلها فقط
+                pass        
         self.update_status()
-        self.filter_extensions()  # تحديث العرض
-        
-        # عرض نتيجة العملية
-        if fail_count == 0:
-            QMessageBox.information(self, "نجاح", f"تم تعطيل {success_count} إضافة بنجاح")
+        self.filter_extensions()
+
+        # عرض رسالة واحدة مبسطة
+        if failed_extensions:
+            QMessageBox.warning(
+                self,
+                "تحذير",
+                f"تم تعطيل {success_count} إضافة بنجاح\n"
+                f"تعذر تعطيل الإضافات التالية:\n• " + "\n�� ".join(failed_extensions)
+            )
         else:
-            QMessageBox.warning(self, "تحذير", 
-                              f"تم تعطيل {success_count} إضافة بنجاح\n"
-                              f"فشل تعطيل {fail_count} إضافة")
+            QMessageBox.information(
+                self,
+                "تم",
+                f"تم تعطيل {success_count} إضافة بنجاح"
+            )
 
     def sort_extensions(self, sort_type):
         """ترتيب الإضافات"""
@@ -641,7 +775,7 @@ class ExtensionManagerDialog(QMainWindow):
         # شريط الأدوات العلوي
         toolbar = QHBoxLayout()
         
-        # تصفية حسب الحالة
+        # تصفية ��سب الحالة
         filter_label = QLabel("عرض:")
         self.filter_combo = QComboBox()
         self.filter_combo.addItems(["الكل", "نشط", "معطل"])
@@ -649,7 +783,10 @@ class ExtensionManagerDialog(QMainWindow):
         
         # أزرار الإجراءات
         refresh_btn = QPushButton()
-        refresh_btn.setIcon(self.style().standardIcon(QStyle.SP_BrowserReload))
+        try:
+            refresh_btn.setIcon(QIcon(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'icons', 'refresh.png')))
+        except Exception as e:
+            pass  # تجاهل أي خطأ في تحميل الأيقونة
         refresh_btn.setToolTip("تحديث")
         refresh_btn.clicked.connect(self.refresh_extensions)
         
@@ -705,12 +842,16 @@ class ExtensionManagerDialog(QMainWindow):
         
         # أيقونة الإضافة
         icon_label = QLabel()
-        icon_path = os.path.join(ext_data['path'], 'icon.png')
-        if os.path.exists(icon_path):
-            pixmap = QPixmap(icon_path).scaled(24, 24, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            icon_label.setPixmap(pixmap)
-        else:
-            icon_label.setPixmap(self.style().standardIcon(QStyle.SP_FileIcon).pixmap(24, 24))
+        try:
+            icon_path = os.path.join(ext_data['path'], 'icon.png')
+            if os.path.exists(icon_path):
+                pixmap = QPixmap(icon_path).scaled(24, 24, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                icon_label.setPixmap(pixmap)
+            else:
+                default_icon = QPixmap(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'icons', 'extension.png')).scaled(24, 24, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                icon_label.setPixmap(default_icon)
+        except Exception as e:
+            pass  # تجاهل أي خطأ في تحميل الأيقونة
         layout.addWidget(icon_label)
         
         # معلومات الإضافة
@@ -736,12 +877,18 @@ class ExtensionManagerDialog(QMainWindow):
         
         # زر المعلومات
         info_btn = QToolButton()
-        info_btn.setIcon(self.style().standardIcon(QStyle.SP_FileDialogInfoView))
+        try:
+            info_btn.setIcon(QIcon(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'icons', 'info.png')))
+        except Exception as e:
+            pass  # تجاهل أي خطأ في تحميل الأيقونة
         info_btn.clicked.connect(lambda: self.show_extension_details(ext_id))
         
         # زر الإعدادات
         settings_btn = QToolButton()
-        settings_btn.setIcon(self.style().standardIcon(QStyle.SP_DirOpenIcon))
+        try:
+            settings_btn.setIcon(QIcon(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'icons', 'folder.png')))
+        except Exception as e:
+            pass  # تجاهل أي خطأ في تحميل الأيقونة
         settings_btn.clicked.connect(lambda: os.startfile(self.extensions_manager.extensions[ext_id]['path']))
         
         # زر التفعيل
@@ -802,42 +949,63 @@ class ExtensionManagerDialog(QMainWindow):
             """)
 
     def on_extension_toggle(self, ext_id, state):
-        """معالج تغيير حالة الإضافة"""
+        """معالجة تغيير حالة الإضافة"""
         try:
+            if ext_id not in self.checkboxes:
+                return
+            
+            checkbox = self.checkboxes[ext_id]
+            if not checkbox or checkbox.parent() is None:
+                del self.checkboxes[ext_id]
+                return
             
             if state == Qt.Checked:
+                # التحقق من المتطلبات قبل التفعيل
+                ext_data = self.extensions_manager.extensions.get(ext_id)
+                if ext_data and 'manifest' in ext_data:
+                    requirements = ext_data['manifest'].get('requirements', [])
+                    if requirements:
+                        # سؤال المستخدم عن تثبيت المتطلبات
+                        reply = QMessageBox.question(
+                            self,
+                            "تثبيت المتطلبات",
+                            f"تحتاج هذه الإضافة إلى المكتبات التالية:\n- " + "\n- ".join(requirements) + "\n\nهل تريد تثبيتها الآن؟",
+                            QMessageBox.Yes | QMessageBox.No
+                        )
+                        
+                        if reply == QMessageBox.Yes:
+                            if not self.install_required_packages(requirements):
+                                checkbox.setChecked(False)
+                                return
+                        else:
+                            checkbox.setChecked(False)
+                            return
+                
+                # محاولة تفعيل الإضافة
                 success = self.extensions_manager.activate_extension(ext_id)
                 if not success:
-                    self.checkboxes[ext_id].setChecked(False)
+                    checkbox.blockSignals(True)
+                    checkbox.setChecked(False)
+                    checkbox.blockSignals(False)
                     QMessageBox.warning(self, "خطأ", f"فشل تفعيل الإضافة {ext_id}")
                     return
             else:
                 success = self.extensions_manager.deactivate_extension(ext_id)
                 if not success:
-                    self.checkboxes[ext_id].setChecked(True)
+                    checkbox.blockSignals(True)
+                    checkbox.setChecked(True)
+                    checkbox.blockSignals(False)
                     QMessageBox.warning(self, "خطأ", f"فشل تعطيل الإضافة {ext_id}")
                     return
             
-            # تحديث واجهة المستخدم
             self.update_extension_status(ext_id)
             self.update_status()
             self.filter_extensions()
             
-            # حفظ التغييرات في الإعدادات مباشرة
-            enabled_extensions = []
-            disabled_extensions = []
-            
-            for ext_id, checkbox in self.checkboxes.items():
-                if checkbox.isChecked():
-                    enabled_extensions.append(ext_id)
-                else:
-                    disabled_extensions.append(ext_id)
-            
-            self.extensions_manager.save_extension_settings(enabled_extensions, disabled_extensions)
-            
         except Exception as e:
             QMessageBox.warning(self, "خطأ", f"حدث خطأ أثناء تغيير حالة الإضافة: {str(e)}")
-            self.checkboxes[ext_id].setChecked(ext_id in self.extensions_manager.active_extensions)
+            if ext_id in self.checkboxes and self.checkboxes[ext_id].parent() is not None:
+                self.checkboxes[ext_id].setChecked(ext_id in self.extensions_manager.active_extensions)
 
     def update_extension_status(self, ext_id):
         """تحديث حالة الإضافة في واجهة المستخدم"""
@@ -993,7 +1161,7 @@ class ExtensionManagerDialog(QMainWindow):
     def update_log(self):
         """تحديث سجل الأضافات"""
         try:
-            log_path = "extensions.log"  # مسار الملف مباشرة في المجلد الرئيسي
+            log_path = "سجلات.log"  # مسار الملف مباشرة في المجلد الرئيسي
             if os.path.exists(log_path):
                 with open(log_path, 'r', encoding='utf-8') as f:
                     log_content = f.readlines()
@@ -1064,6 +1232,10 @@ class ExtensionManagerDialog(QMainWindow):
         self.log_browser.setReadOnly(True)
         self.log_browser.setMinimumHeight(200)
         
+        # تعريب القائمة السياقية للسجل
+        self.log_browser.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.log_browser.customContextMenuRequested.connect(self.show_log_context_menu)
+        
         # أزرار التحكم
         controls = QHBoxLayout()
         
@@ -1088,10 +1260,29 @@ class ExtensionManagerDialog(QMainWindow):
         # تحديث السجل الأولي
         self.update_log()
 
+    def show_log_context_menu(self, position):
+        """عرض القائمة السياقية للسجل"""
+        menu = QMenu()
+        
+        # إضافة الإجراءات المعربة
+        copy_action = menu.addAction("نسخ")
+        copy_action.setShortcut("Ctrl+C")
+        copy_action.triggered.connect(self.log_browser.copy)
+        
+        copy_link_action = menu.addAction("نسخ رابط الموقع")
+        copy_link_action.triggered.connect(lambda: self.copy_log_link(self.log_browser.textCursor()))
+        
+        select_all_action = menu.addAction("تحديد الكل")
+        select_all_action.setShortcut("Ctrl+A")
+        select_all_action.triggered.connect(self.log_browser.selectAll)
+        
+        # عرض القائمة
+        menu.exec_(self.log_browser.mapToGlobal(position))
+
     def clear_log(self):
         """مسح محتوى ملف السجل"""
         try:
-            log_path = "extensions.log"
+            log_path = "سجلات.log"
             # مسح محتوى الملف
             with open(log_path, 'w', encoding='utf-8') as f:
                 f.write("")  # كتابة ملف فارغ
@@ -1111,26 +1302,159 @@ class ExtensionManagerDialog(QMainWindow):
 
     def refresh_extensions(self):
         """تحديث قائمة الإضافات المثبتة"""
-        self.extensions_manager.discover_extensions()
-        self.extensions_manager.load_active_extensions()
-        self.setup_installed_tab(self.tab_widget.widget(0))  # تحديث تبويب الإضافات المثتة فقط
-
+        try:
+            self.extensions_manager.log_message("بدء تحديث الإضافات...")
+            
+            previously_active = set(self.extensions_manager.active_extensions.keys())
+            self.extensions_manager.discover_extensions()
+            
+            activated_count = 0
+            for ext_id in previously_active:
+                if ext_id in self.extensions_manager.extensions and ext_id not in self.extensions_manager.active_extensions:
+                    if self.extensions_manager.activate_extension(ext_id):
+                        activated_count += 1
+                        
+            self.extensions_manager.log_message(f"تم تحديث {activated_count} إضافة بنجاح")
+            self.setup_installed_tab(self.tab_widget.widget(0))
+            
+        except Exception as e:
+            self.extensions_manager.log_message(f"خطأ في تحديث الإضافات: {str(e)}", "ERROR")
     def update_store_view(self, extensions):
-        """تحديث عرض المتجر بقائمة الإضافات المحددة"""
+        """تحديث عرض المتجر بقائمة الإضافات المحددة مع دعم التحميل المتدرج"""
         try:
             # مسح العناصر السابقة
             for i in reversed(range(self.store_layout.count())):
                 widget = self.store_layout.itemAt(i).widget()
                 if widget:
                     widget.setParent(None)
-            
-            # إضافة الإضافات الجديدة
-            for ext in extensions:
-                ext_widget = self.create_store_extension_widget(ext)
-                self.store_layout.addWidget(ext_widget)
                 
+            # إنشاء ويدجت للتمرير
+            scroll_area = QScrollArea()
+            scroll_area.setWidgetResizable(True)
+            scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+            
+            # إنشاء الويدجت الرئيسي
+            container = QWidget()
+            container.setObjectName("StoreContainer")
+            layout = QVBoxLayout(container)
+            
+            # إضافة حقل البحث
+            search_layout = QHBoxLayout()
+            self.search_input = QLineEdit()
+            self.search_input.setPlaceholderText("البحث في الإضافات...")
+            self.search_input.textChanged.connect(lambda: self.filter_extensions(extensions))
+            search_layout.addWidget(self.search_input)
+            
+            # إضافة قائمة التصفية
+            self.filter_combo = QComboBox()
+            self.filter_combo.addItems(["الكل", "مثبتة", "غير مثبتة", "تحتاج تحديث"])
+            self.filter_combo.currentTextChanged.connect(lambda: self.filter_extensions(extensions))
+            search_layout.addWidget(self.filter_combo)
+            
+            layout.addLayout(search_layout)
+            
+            # إنشاء مخزن مؤقت للويدجت
+            self.extension_widgets = {}
+            
+            # تحميل أول 20 إضافة فقط
+            self.current_page = 0
+            self.items_per_page = 20
+            self.all_extensions = extensions
+            
+            # إضافة الإضافات الأولية
+            self.load_more_extensions(layout)
+            
+            # إضافة زر "تحميل المزيد"
+            self.load_more_btn = QPushButton("تحميل المزيد")
+            self.load_more_btn.clicked.connect(lambda: self.load_more_extensions(layout))
+            layout.addWidget(self.load_more_btn)
+            
+            scroll_area.setWidget(container)
+            self.store_layout.addWidget(scroll_area)
+            
+            # إضافة مراقب التمرير للتحميل التلقائي
+            scroll_area.verticalScrollBar().valueChanged.connect(
+                lambda value: self.check_scroll_position(value, scroll_area, layout)
+            )
+            
         except Exception as e:
             QMessageBox.critical(self, "خطأ", f"حدث خطأ أثناء تحديث عرض المتجر:\n{str(e)}")
+
+    def check_scroll_position(self, value, scroll_area, layout):
+        """التحقق من موضع التمرير وتحميل المزيد من الإضافات عند الحاجة"""
+        if value >= scroll_area.verticalScrollBar().maximum() * 0.8:
+            self.load_more_extensions(layout)
+
+    def load_more_extensions(self, layout):
+        """تحميل المزيد من الإضافات"""
+        try:
+            start_idx = self.current_page * self.items_per_page
+            end_idx = start_idx + self.items_per_page
+            current_extensions = self.filter_current_extensions()[start_idx:end_idx]
+            
+            if not current_extensions:
+                self.load_more_btn.setVisible(False)
+                return
+                
+            for ext in current_extensions:
+                if ext['id'] not in self.extension_widgets:
+                    widget = self.create_store_extension_widget(ext)
+                    self.extension_widgets[ext['id']] = widget
+                    layout.insertWidget(layout.count() - 1, widget)
+            
+            self.current_page += 1
+            
+        except Exception as e:
+            print(f"خطأ في تحميل الإضافات: {str(e)}")
+
+    def filter_extensions(self, extensions=None):
+        """تصفية الإضافات حسب الحالة"""
+        filter_status = self.filter_combo.currentText()
+        
+        for ext_id, widget in self.extension_widgets.items():
+            is_active = ext_id in self.extensions_manager.active_extensions
+            
+            if filter_status == "الكل":
+                widget.setVisible(True)
+            elif filter_status == "نشط":
+                widget.setVisible(is_active)
+            elif filter_status == "معطل":
+                widget.setVisible(not is_active)
+
+    def filter_current_extensions(self):
+        """تصفية الإضافات الحالية حسب معايير البحث والفلتر"""
+        search_text = self.search_input.text().lower()
+        filter_type = self.filter_combo.currentText()
+        
+        filtered_extensions = []
+        for ext in self.all_extensions:
+            # تطبيق البحث
+            if search_text and not (
+                search_text in ext['name'].lower() or 
+                search_text in ext.get('description', '').lower() or
+                search_text in ext.get('author', '').lower()
+            ):
+                continue
+            
+            # تطبيق الفلتر
+            is_installed = ext['id'] in self.extensions_manager.extensions
+            needs_update = False
+            
+            if is_installed:
+                installed_version = self.extensions_manager.extensions[ext['id']].get('manifest', {}).get('version', '0.0.0')
+                store_version = ext.get('version', '0.0.0')
+                needs_update = self.compare_versions(installed_version, store_version) < 0
+            
+            if filter_type == "مثبتة" and not is_installed:
+                continue
+            elif filter_type == "غير مثبتة" and is_installed:
+                continue
+            elif filter_type == "تحتاج تحديث" and not needs_update:
+                continue
+                
+            filtered_extensions.append(ext)
+        
+        return filtered_extensions
 
     def create_store_extension_widget(self, extension):
         """إنشاء عنصر واجهة لإضافة في المتجر"""
@@ -1391,19 +1715,19 @@ class ExtensionManagerDialog(QMainWindow):
             logging.error(f"خطأ في تحديث الكاش: {str(e)}")
 
     def toggle_token_visibility(self):
-        """تبديل إظهار/إخفء التوكن"""
+        """تبديل إظهار/إخف�� الرمز"""
         if self.token_input.echoMode() == QLineEdit.Password:
             self.token_input.setEchoMode(QLineEdit.Normal)
         else:
             self.token_input.setEchoMode(QLineEdit.Password)
 
     def open_github_token_page(self):
-        """فتح صفحة إنشاء توكن GitHub"""
+        """فتح صفحة إنشاء رمز جيت هاب"""
         url = "https://github.com/settings/tokens/new?description=Qirtas%20Extension%20Store&scopes=repo"
         QDesktopServices.openUrl(QUrl(url))
 
     def validate_token(self, token):
-        """التحقق من صلاحية التوكن"""
+        """التحقق من صلاحية الرمز"""
         try:
             headers = {
                 'Authorization': f'token {token}',
@@ -1415,24 +1739,24 @@ class ExtensionManagerDialog(QMainWindow):
                 return True
             elif response.status_code == 401:
                 QMessageBox.warning(self, "تحذير", 
-                    "التوكن غير صالح أو تم إلغاؤه.\n"
-                    "يرجى إنشاء توكن جديد."
+                    "الرمز غير صالح أو تم إلغاؤه.\n"
+                    "يرجى إنشاء رمز جديد."
                 )
             return False
         except Exception as e:
             QMessageBox.critical(self, "خطأ", 
-                f"حدث خطأ في التحقق من التوكن:\n{str(e)}"
+                f"حدث خطأ في التحقق من الرمز:\n{str(e)}"
             )
             return False
 
     def save_token(self, token):
-        """حفظ التوكن بشكل آمن"""
+        """حفظ الرمز بشكل آمن"""
         try:
-            # التحقق من صلاحية التوكن قبل حفظه
+            # التحقق من صلاحية الرمز قبل حفظه
             if not self.validate_token(token):
                 return False
             
-            # تشفير التوكن قبل حفظه (مكن استخدام مكتبة cryptography)
+            # تشفير الرمز قبل حفظه (مكن استخدام مكتبة cryptography)
             # هذا مثال بسيط، يفضل استخدام تشفير أقوى
             encoded_token = base64.b64encode(token.encode()).decode()
             
@@ -1448,7 +1772,7 @@ class ExtensionManagerDialog(QMainWindow):
             return True
         except Exception as e:
             QMessageBox.critical(self, "خطأ", 
-                f"فشل حفظ التوكن:\n{str(e)}"
+                f"فشل حفظ الرمز:\n{str(e)}"
             )
             return False
 
@@ -1533,7 +1857,7 @@ class ExtensionManagerDialog(QMainWindow):
             QMessageBox.critical(self, "خطأ", f"حدث خطأ أثناء تحديث العرض:\n{str(e)}")
 
     def closeEvent(self, event):
-        """معالجة حدث إغلاق النافذة"""
+        """حدث إغلاق النافذة"""
         # حفظ حالة النافذة
         self.save_window_state()
         event.accept()
@@ -1711,78 +2035,6 @@ class ExtensionManagerDialog(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "خطأ", f"حدث خطأ أثناء استعادة النسخة الاحتياطية:\n{str(e)}")
 
-    def setup_stats_tab(self, tab):
-        """إعداد تبويب الإحصائيات والسجل"""
-        layout = QVBoxLayout()
-        
-        # إحصائيات عامة
-        stats_group = QGroupBox("إحصائيات عامة")
-        stats_layout = QGridLayout()
-        
-        # حساب الإحصائيات
-        total_count = len(self.extensions_manager.extensions)
-        active_count = len(self.extensions_manager.active_extensions)
-        
-        # عرض الإحصائيات
-        stats_layout.addWidget(QLabel("إجمالي الإضافات:"), 0, 0)
-        stats_layout.addWidget(QLabel(str(total_count)), 0, 1)
-        
-        stats_layout.addWidget(QLabel("الإضافات النشطة:"), 1, 0)
-        stats_layout.addWidget(QLabel(f"<span style='color: green;'>{active_count}</span>"), 1, 1)
-        
-        
-        stats_group.setLayout(stats_layout)
-        layout.addWidget(stats_group)
-        
-        # سجل الأحداث
-        log_group = QGroupBox("سجل الأحداث")
-        log_layout = QVBoxLayout()
-        
-        # إنشاء مربع النص للسجل
-        self.log_browser = QTextBrowser()
-        self.log_browser.setReadOnly(True)
-        self.log_browser.setMinimumHeight(200)
-        
-        # أزرار التحكم
-        controls = QHBoxLayout()
-        
-        refresh_log_btn = QPushButton("تحديث")
-        refresh_log_btn.clicked.connect(self.update_log)
-        
-        clear_log_btn = QPushButton("مسح")
-        clear_log_btn.clicked.connect(self.clear_log)
-        
-        controls.addWidget(refresh_log_btn)
-        controls.addWidget(clear_log_btn)
-        controls.addStretch()
-        
-        log_layout.addWidget(self.log_browser)
-        log_layout.addLayout(controls)
-        
-        log_group.setLayout(log_layout)
-        layout.addWidget(log_group)
-        
-        tab.setLayout(layout)
-        
-        # تحديث السجل الأولي
-        self.update_log()
-
-    def clear_log(self):
-        """مسح محتوى ملف السجل"""
-        try:
-            log_path = "extensions.log"
-            # مسح محتوى الملف
-            with open(log_path, 'w', encoding='utf-8') as f:
-                f.write("")  # كتابة ملف فارغ
-            
-            # مسح محتوى اعرض
-            self.log_browser.clear()
-            
-            # إضافة رسالة تأكيد
-            self.log_browser.setText("تم مسح السجل بنجاح")
-            
-        except Exception as e:
-            QMessageBox.warning(self, "خطأ", f"فشل مسح السجل: {str(e)}")
 
 
 
@@ -1978,7 +2230,34 @@ class ExtensionManagerDialog(QMainWindow):
             contents = response.json()
             progress.setValue(20)
             
-            # إنشاء مجلد لإضافة
+            # التحقق من وجود manifest.json وقراءته
+            manifest_content = None
+            for item in contents:
+                if item['name'] == 'manifest.json':
+                    manifest_url = f"{self.store.raw_base_url}/store/extensions/{ext_id}/manifest.json"
+                    manifest_response = requests.get(manifest_url, headers=headers)
+                    if manifest_response.status_code == 200:
+                        manifest_content = json.loads(manifest_response.content)
+                    break
+            
+            if manifest_content and 'requirements' in manifest_content:
+                # سؤال المستخدم عن تثبيت المتطلبات
+                requirements = manifest_content['requirements']
+                if requirements:
+                    reply = QMessageBox.question(
+                        self,
+                        "تثبيت المتطلبات",
+                        f"تحتاج هذه الإضافة إلى المكتبات التالية:\n- " + "\n- ".join(requirements) + "\n\nهل تريد تثبيتها الآن؟",
+                        QMessageBox.Yes | QMessageBox.No
+                    )
+                    
+                    if reply == QMessageBox.Yes:
+                        if not self.install_required_packages(requirements):
+                            raise Exception("فشل في تثبيت المتطلبات المطلوبة")
+                    else:
+                        raise Exception("تم إلغاء التثبيت من قبل المستخدم")
+            
+            # إنشاء مجلد للإضافة
             extensions_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'extensions')
             ext_dir = os.path.join(extensions_dir, ext_id)
             os.makedirs(ext_dir, exist_ok=True)
@@ -2011,7 +2290,7 @@ class ExtensionManagerDialog(QMainWindow):
                     else:
                         raise Exception(f"فشل في تنزيل الملف {item['name']}")
             
-            progress.setValue(80)
+            progress.setValue(90)
             
             # تحديث قائمة الإضافات
             if hasattr(self.extensions_manager, 'scan_extensions'):
@@ -2019,17 +2298,6 @@ class ExtensionManagerDialog(QMainWindow):
             
             # تحديث الكاش
             self.update_cache()
-            
-            progress.setValue(90)
-            
-            # تفعيل الإضافة وتحديث القائمة
-            if hasattr(self.extensions_manager, 'disabled_extensions'):
-                if ext_id not in self.extensions_manager.disabled_extensions:
-                    if hasattr(self.extensions_manager, 'activate_extension'):
-                        self.extensions_manager.activate_extension(ext_id)
-            
-            if hasattr(self.extensions_manager, 'setup_menu'):
-                self.extensions_manager.setup_menu()
             
             progress.setValue(100)
             
@@ -2055,7 +2323,7 @@ class ExtensionManagerDialog(QMainWindow):
                 with open(cache_path, 'r', encoding='utf-8') as f:
                     cache_data = json.load(f)
                 
-                # تحديث معلومات الإضافات المثبتة
+                # تحديث ��علومات الإضافات المثبتة
                 for ext in cache_data:
                     if ext['id'] in self.extensions_manager.extensions:
                         # حذف معلومات الإصدار من الكاش
@@ -2070,19 +2338,19 @@ class ExtensionManagerDialog(QMainWindow):
             logging.error(f"خطأ في تحديث الكاش: {str(e)}")
 
     def toggle_token_visibility(self):
-        """تبديل إظهار/إخفء التوكن"""
+        """تبديل إظهار/إخفء الرمز"""
         if self.token_input.echoMode() == QLineEdit.Password:
             self.token_input.setEchoMode(QLineEdit.Normal)
         else:
             self.token_input.setEchoMode(QLineEdit.Password)
 
     def open_github_token_page(self):
-        """فتح صفحة إنشاء توكن GitHub"""
+        """فتح صفحة إنشاء رمز جيت هاب"""
         url = "https://github.com/settings/tokens/new?description=Qirtas%20Extension%20Store&scopes=repo"
         QDesktopServices.openUrl(QUrl(url))
 
     def validate_token(self, token):
-        """التحقق من صلاحية التوكن"""
+        """التحقق من صلاحية الرمز"""
         try:
             headers = {
                 'Authorization': f'token {token}',
@@ -2094,24 +2362,24 @@ class ExtensionManagerDialog(QMainWindow):
                 return True
             elif response.status_code == 401:
                 QMessageBox.warning(self, "تحذير", 
-                    "التوكن غير صالح أو تم إلغاؤه.\n"
-                    "يرجى إنشاء توكن جديد."
+                    "الرمز غير صالح أو تم إلغاؤه.\n"
+                    "يرجى إنشاء رمز جديد."
                 )
             return False
         except Exception as e:
             QMessageBox.critical(self, "خطأ", 
-                f"حدث خطأ في التحقق من التوكن:\n{str(e)}"
+                f"حدث خطأ في التحقق من الرمز:\n{str(e)}"
             )
             return False
 
     def save_token(self, token):
-        """حفظ التوكن بشكل آمن"""
+        """حفظ الرمز بشكل آمن"""
         try:
-            # التحقق من صلاحية التوكن قبل حفظه
+            # التحقق من صلاحية الرمز قبل حفظه
             if not self.validate_token(token):
                 return False
             
-            # تشفير التوكن قبل حفظه (مكن استخدام مكتبة cryptography)
+            # تشفير الرمز قبل حفظه (مكن استخدام مكتبة cryptography)
             # هذا مثال بسيط، يفضل استخدام تشفير أقوى
             encoded_token = base64.b64encode(token.encode()).decode()
             
@@ -2127,7 +2395,7 @@ class ExtensionManagerDialog(QMainWindow):
             return True
         except Exception as e:
             QMessageBox.critical(self, "خطأ", 
-                f"فشل حفظ التوكن:\n{str(e)}"
+                f"فشل حفظ الرمز:\n{str(e)}"
             )
             return False
 
@@ -2217,6 +2485,12 @@ class ExtensionManagerDialog(QMainWindow):
         self.save_window_state()
         event.accept()
 
+    def show_dialog(self):
+        """عرض النافذة"""
+        self.show()
+        self.raise_()
+        self.activateWindow()
+
     def save_window_state(self):
         """حفظ حالة وموقع النافذة"""
         self.settings.setValue('geometry', self.saveGeometry())
@@ -2228,6 +2502,95 @@ class ExtensionManagerDialog(QMainWindow):
             self.restoreGeometry(self.settings.value('geometry'))
         if self.settings.value('windowState'):
             self.restoreState(self.settings.value('windowState'))
+
+    def install_required_packages(self, requirements):
+        """تثبيت الحزم المطلوبة"""
+        try:
+            print("بدء عملية تثبيت المكتبات...")
+            print(f"المكتبات المطلوبة: {requirements}")
+            
+            # إنشاء نافذة تقدم العملية
+            progress = QProgressDialog(self)
+            progress.setWindowTitle("تثبيت المتطلبات")
+            progress.setLabelText("جاري تثبيت المكتبات المطلوبة...")
+            progress.setMinimum(0)
+            progress.setMaximum(len(requirements))
+            progress.setCancelButton(None)
+            progress.setWindowModality(Qt.WindowModal)
+            
+            installed_packages = []
+            failed_packages = []
+            
+            for i, package in enumerate(requirements):
+                try:
+                    print(f"\nجاري تثبيت {package}...")
+                    progress.setValue(i)
+                    progress.setLabelText(f"جاري تثبيت {package}...")
+                    QApplication.processEvents()
+                    
+                    # التحقق مما إذا كانت الحزمة مثبتة بالفعل
+                    try:
+                        pkg_resources.require(package)
+                        print(f"المكتبة {package} مثبتة بالفعل")
+                        installed_packages.append(package)
+                        continue
+                    except (pkg_resources.DistributionNotFound, pkg_resources.VersionConflict):
+                        print(f"المكتبة {package} غير مثبتة، جاري التثبيت...")
+                    
+                    # تثبيت الحزمة
+                    process = subprocess.Popen(
+                        [sys.executable, "-m", "pip", "install", package, "--user"],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        universal_newlines=True
+                    )
+                    
+                    # قراءة المخرجات
+                    stdout, stderr = process.communicate()
+                    print("مخرجات pip:")
+                    print(stdout)
+                    
+                    if process.returncode != 0:
+                        print(f"خطأ في تثبيت {package}:")
+                        print(stderr)
+                        failed_packages.append((package, stderr))
+                    else:
+                        print(f"تم تثبيت {package} بنجاح")
+                        installed_packages.append(package)
+                    
+                except Exception as e:
+                    print(f"خطأ غير متوقع أثناء تثبيت {package}:")
+                    print(str(e))
+                    failed_packages.append((package, str(e)))
+                    
+            progress.close()
+            
+            # عرض نتيجة التثبيت
+            print("\nملخص التثبيت:")
+            print(f"تم تثبيت: {installed_packages}")
+            print(f"فشل تثبيت: {[pkg for pkg, _ in failed_packages]}")
+            
+            if installed_packages:
+                success_msg = "تم تثبيت المكتبات التالية بنجاح:\n- " + "\n- ".join(installed_packages)
+                if failed_packages:
+                    success_msg += "\n\nفشل تثبيت المكتبات التالية:\n"
+                    for pkg, err in failed_packages:
+                        success_msg += f"- {pkg}: {err}\n"
+                
+                QMessageBox.information(self, "اكتمل التثبيت", success_msg)
+            elif failed_packages:
+                error_msg = "فشل تثبيت المكتبات التالية:\n"
+                for pkg, err in failed_packages:
+                    error_msg += f"- {pkg}: {err}\n"
+                QMessageBox.warning(self, "خطأ في التثبيت", error_msg)
+                
+            return len(failed_packages) == 0
+            
+        except Exception as e:
+            print(f"خطأ عام في عملية التثبيت: {str(e)}")
+            QMessageBox.critical(self, "خطأ", f"حدث خطأ أثناء تثبيت المكتبات:\n{str(e)}")
+            return False
+
 
 
 
@@ -2244,27 +2607,31 @@ class ExtensionsManager:
         self.network_restrictions = False
         self.system_restrictions = False
         self.monitoring_enabled = False
-        
-        # إضافة متغير القائمة
         self.extensions_menu = None
         
         self.extensions_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'extensions')
         if not os.path.exists(self.extensions_dir):
             os.makedirs(self.extensions_dir)
-            
-        logging.basicConfig(
-            filename='extensions.log',
-            level=logging.DEBUG,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            encoding='utf-8'  # إضافة الترميز UTF-8
-        )
+        
+        # إعداد التسجيل باللغة العربية
+        setup_arabic_logging()
         self.logger = logging.getLogger('ExtensionsManager')
         
         self.load_extension_settings()
         self.discover_extensions()
         self.load_active_extensions()
         self.setup_menu()
-
+        
+    def log_message(self, message, level="INFO"):
+        """تسجيل رسالة في ملف السجل"""
+        try:
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            log_entry = f"{timestamp} - ExtensionsManager - {level} - {message}\n"
+            
+            with open('سجلات.log', 'a', encoding='utf-8') as f:
+                f.write(log_entry)
+        except Exception as e:
+            print(f"خطأ في كتابة السجل: {str(e)}")
     def setup_menu(self):
         """إعداد قائمة الإضافات"""
         if not hasattr(self.editor, 'menuBar'):
@@ -2497,7 +2864,7 @@ class ExtensionsManager:
             if ext_id in self.active_extensions:
                 extension = self.active_extensions[ext_id]
                 
-                # 1. استدعاء دالة التنظيف في الإضافة
+                # 1. استدع��ء دالة التنظيف في الإضافة
                 if hasattr(extension, 'cleanup'):
                     extension.cleanup()
                 
@@ -2560,13 +2927,13 @@ class ExtensionsManager:
             sys.modules[module_name] = module
             spec.loader.exec_module(module)
             
-            # 4. إنشاء نسخة من الإضافة بشكل مرن
+            # 4. إنش��ء نسخة من الإضافة بشكل مرن
             try:
                 # محاولة إنشاء الإضافة مع المحرر
                 extension = module.Extension(self.editor)
             except TypeError:
                 try:
-                    # محاولة إنشاء الإضافة بدون وسائط
+                    # محاولة إنشاء الإضافة بدون ��سائط
                     extension = module.Extension()
                     # تعيين المحرر بعد الإنشاء إذا كانت الدالة موجودة
                     if hasattr(extension, 'set_editor'):
@@ -2593,29 +2960,31 @@ class ExtensionsManager:
             
             return True
         except Exception as e:
-            self.logger.error(f"خطأ في تفعيل الإضافة {ext_id}: {str(e)}")
+            self.log_message(f"فشل تفعيل الإضافة {ext_id}: {str(e)}", "ERROR")
             return False
 
     def get_context_menu_items(self):
-        """الحصول على عناصر القائمة السياقية من الملحقات النشطة"""
-        context_menu_items = []
+        """الحصول على عناصر القائمة السياقية من الإضافات النشطة"""
+        menu_items = []
         
+        # التحقق من وجود إضافات نشطة
+        if not hasattr(self, 'active_extensions'):
+            return menu_items
+        
+        # جمع عناصر القائمة من كل إضافة نشطة
         for ext_id, extension in self.active_extensions.items():
             if hasattr(extension, 'get_context_menu_items'):
                 try:
                     items = extension.get_context_menu_items()
                     if items:
-                        # إضافة معرف الملحق لكل عنصر
-                        for item in items:
-                            item['extension_id'] = ext_id
-                        context_menu_items.extend(items)
+                        menu_items.extend(items)
                 except Exception as e:
-                    print(f"خطأ في الحصول على عناصر القائمة السياقية من الملحق {ext_id}: {str(e)}")
+                    print(f"خطأ في الحصول على عناصر القائمة من الإضافة {ext_id}: {str(e)}")
         
-        return context_menu_items
+        return menu_items
 
     def create_context_menu_action(self, item, parent):
-        """إنشاء إجر��ء للقائمة السياقية"""
+        """إنشاء إجرء للقائمة السياقية"""
         action = QAction(item['name'], parent)
         
         if 'shortcut' in item:

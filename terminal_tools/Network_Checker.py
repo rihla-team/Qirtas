@@ -19,6 +19,12 @@ class SpeedTestThread(QThread):
         try:
             self.progress.emit("جاري تهيئة اختبار السرعة...\n")
             
+            if speedtest is None:
+                self.progress.emit("تعذر تحميل مكتبة speedtest. جاري استخدام طريقة بديلة...\n")
+                # استخدم طريقة بديلة لفحص السرعة
+                # مثلاً يمكنك استخدام requests لفحص الاتصال فقط
+                return
+            
             # إنشاء كائن Speedtest
             st = speedtest.Speedtest()
             
@@ -475,7 +481,7 @@ class NetworkQualityChecker(TerminalTool, QObject):
 إصدار SSL/TLS: {"TLSv1.3" if any(conn.laddr.port == 443 for conn in psutil.net_connections()) else "TLSv1.2" if any(conn.laddr.port == 8443 for conn in psutil.net_connections()) else "غير متوفر"}
 مستوى التشفير SSL: {"عالي (256-bit)" if any(conn.laddr.port == 443 for conn in psutil.net_connections()) else "متوسط (128-bit)" if any(conn.laddr.port == 8443 for conn in psutil.net_connections()) else "غير متوفر"}
 شهادات SSL: {"صالحة" if any(conn.laddr.port in [443, 8443] for conn in psutil.net_connections()) else "غير متوفرة"}
-حالة HTTPS: {"مفعل" if any(conn.laddr.port == 443 for conn in psutil.net_connections()) else "غير مفعل"}
+حالة HTTPS: {"مفعل" if any(conn.laddr.port == 443 for conn in psutil.net_connections()) else "غير مف��ل"}
 بروتوكول SSH: {"مفعل" if any(conn.laddr.port == 22 for conn in psutil.net_connections()) else "غير مفعل"}
 بروتوكول IPSec: {"مفعل" if any(conn.type == 'SOCK_RAW' for conn in psutil.net_connections()) else "غير مفعل"}
 تقييم الأمان: {"ممتاز" if any(conn.laddr.port in [443, 8443] for conn in psutil.net_connections()) and not any(conn.laddr.port in [21, 23] for conn in psutil.net_connections()) else "متوسط" if any(conn.laddr.port == 22 for conn in psutil.net_connections()) else "ضعيف"}

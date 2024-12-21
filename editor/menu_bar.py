@@ -1,12 +1,15 @@
-from PyQt5.QtWidgets import QMenuBar,QAction, QFontDialog, QMessageBox
-from PyQt5.QtGui import QKeySequence 
+from PyQt5.QtWidgets import QMenuBar,QAction, QFontDialog, QMessageBox, QPushButton
+from PyQt5.QtGui import QKeySequence, QIcon
+from PyQt5.QtCore import Qt
 from editor.terminal_widget import ArabicTerminal
+from editor.settings_dialog import SettingsDialog
+    
 class ArabicMenuBar(QMenuBar):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent = parent
         self.setup_menus()
-        
+
     def setup_menus(self):
         # قائمة ملف
         file_menu = self.addMenu('ملف')
@@ -31,24 +34,34 @@ class ArabicMenuBar(QMenuBar):
         new_action.triggered.connect(self.parent.new_file)
         file_menu.addAction(new_action)
         
-        auto_save_action = QAction('الحفظ التلقائي', self)
-        auto_save_action.setCheckable(True)
-        auto_save_action.triggered.connect(self.toggle_auto_save)
-        file_menu.addAction(auto_save_action)
+        open_folder_action = QAction('فتح مجلد...', self)
+        open_folder_action.setShortcut(QKeySequence("Ctrl+K"))
+        open_folder_action.triggered.connect(self.parent.open_folder)
+        file_menu.addAction(open_folder_action)
         
         file_menu.addSeparator()
 
         terminal_action = QAction('فتح موجه الاوامر', self)
         terminal_action.setShortcuts([QKeySequence("Ctrl+ذ"), QKeySequence("Ctrl+`")])
         terminal_action.triggered.connect(self.parent.add_terminal)
-        file_menu.addAction(terminal_action)       
+        file_menu.addAction(terminal_action)     
+          
+        toggle_sidebar_action = QAction(' الشريط الجانبي', self)
+        toggle_sidebar_action.setShortcut(QKeySequence("Ctrl+L"))
+        toggle_sidebar_action.setCheckable(True)  # جعل الزر قابل للتبديل
+        toggle_sidebar_action.setChecked(True)    # الحالة الافتراضية: ظاهر
+        toggle_sidebar_action.triggered.connect(lambda: self.parent.sidebar_manager.toggle_sidebar())
+        file_menu.addAction(toggle_sidebar_action)
         
+        # حفظ الإجراء كخاصية للوصول إليه لاحقاً
+        self.toggle_sidebar_action = toggle_sidebar_action
+
 
         
         # تحديث حالة الحفظ التلقائي من الإعدادات
         if hasattr(self.parent, 'settings_manager'):
             enabled = self.parent.settings_manager.get_setting('editor.auto_save.enabled', False)
-            auto_save_action.setChecked(enabled)
+
             
 
         # قائمة تحرير
@@ -107,7 +120,7 @@ class ArabicMenuBar(QMenuBar):
         format_menu.addAction(italic_action)
         
         # تسطير
-        underline_action = QAction('تسطير', self)
+        underline_action = QAction('��سطير', self)
         underline_action.setShortcut(QKeySequence.Underline)  # Ctrl+U
         underline_action.triggered.connect(lambda: self.parent.format_text('underline'))
         format_menu.addAction(underline_action)
@@ -144,6 +157,24 @@ class ArabicMenuBar(QMenuBar):
         font_action.triggered.connect(self.show_font_dialog)
         format_menu.addAction(font_action)
 
+        # إضافة زر الإعدادات في الزاوية اليسرى
+        settings_action = QAction(QIcon('resources/icons/settings.png'), 'الإعدادات', self)
+        settings_action.triggered.connect(self.show_settings)
+        
+        # إنشاء زر وإضافة الإجراء إليه
+        settings_button = QPushButton(self)
+        settings_button.setIcon(QIcon('resources/icons/settings.png'))
+        settings_button.setToolTip('الإعدادات')
+        settings_button.clicked.connect(lambda: self.show_settings())
+        
+        self.setCornerWidget(settings_button, Qt.TopRightCorner)  # سيظهر في اليسار بسبب RTL
+    def show_settings(self):
+        """فتح نافذة الإعدادات"""
+        try:
+            dialog = SettingsDialog(self.parent)
+            dialog.exec_()
+        except Exception as e:
+            QMessageBox.critical(self, "خطأ", f"حدث خطأ أثناء فتح الإعدادات: {str(e)}")
     def toggle_auto_save(self, enabled):
         """تفعيل/تعطيل الحفظ التلقائي"""
         try:
@@ -191,5 +222,7 @@ class ArabicMenuBar(QMenuBar):
             terminal = self.parent.terminal_container.findChild(ArabicTerminal)
             if terminal:
                 terminal.show_search()
+
+
 
         

@@ -3,9 +3,36 @@ import os
 import requests
 import time
 import semver
+import asyncio
+import aiohttp
+import logging
+from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache, wraps
+
+# إعداد المسجل
+logger = logging.getLogger(__name__)
+
+def timed_lru_cache(seconds: int, maxsize: int = 128):
+    """منفذ مخصص للكاش مع دعم وقت انتهاء الصلاحية"""
+    def wrapper_decorator(func):
+        func = lru_cache(maxsize=maxsize)(func)
+        func.lifetime = seconds
+        func.expiration = time.time() + seconds
+
+        @wraps(func)
+        def wrapped_func(*args, **kwargs):
+            if time.time() >= func.expiration:
+                func.cache_clear()
+                func.expiration = time.time() + func.lifetime
+            return func(*args, **kwargs)
+
+        return wrapped_func
+
+    return wrapper_decorator
 
 class ExtensionStore:
     def __init__(self):
+        logger.info("بدء تهيئة متجر الإضافات")
         self.base_url = "https://api.github.com/repos/rihla-team/qirtas-extensions"
         self.raw_base_url = "https://raw.githubusercontent.com/rihla-team/qirtas-extensions/main"
         self.cache_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'cache')
@@ -19,6 +46,15 @@ class ExtensionStore:
         self.headers = self.create_headers()
         self.memory_cache = {}
         
+        self.default_icon_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), 
+            'resources', 
+            'icons', 
+            'extension_default.png'
+        )
+        self.icon_cache = {}
+        logger.info("تم تهيئة متجر الإضافات بنجاح")
+
     def get_current_platform(self):
         """تحديد نظام التشغيل الحالي"""
         import platform
@@ -41,45 +77,147 @@ class ExtensionStore:
             pass
         return '1.0.0'
 
+    async def _fetch_icon(self, session, ext_name):
+        """جلب أيقونة الإضافة مع التعامل مع الحالات الخاصة"""
+        try:
+            # جلب الاسم العربي من الكاش إذا كان موجوداً
+            display_name = self.memory_cache.get(ext_name, {}).get('name', ext_name)
+            
+            if ext_name in self.icon_cache:
+                logger.debug(f"استخدام الأيقونة المخزنة مؤقتاً للإضافة '{display_name}'")
+                return self.icon_cache[ext_name]
+
+            url = f"{self.raw_base_url}/store/extensions/{ext_name}/icon.png"
+            async with session.get(url) as response:
+                if response.status == 200:
+                    logger.debug(f"تم جلب أيقونة الإضافة '{display_name}' بنجاح")
+                    icon_data = await response.read()
+                    self.icon_cache[ext_name] = icon_data
+                    return icon_data
+                else:
+                    logger.debug(f"استخدام الأيقونة الافتراضية للإضافة '{display_name}'")
+                    if os.path.exists(self.default_icon_path):
+                        with open(self.default_icon_path, 'rb') as f:
+                            default_icon = f.read()
+                            self.icon_cache[ext_name] = default_icon
+                            return default_icon
+        except Exception as e:
+            logger.error(f"خطأ في جلب أيقونة الإضافة '{display_name}': {str(e)}")
+        return None
+
+    async def _fetch_manifest(self, session, ext_name):
+        """جلب ملف manifest.json لإضافة واحدة مع الأيقونة"""
+        url = f"{self.raw_base_url}/store/extensions/{ext_name}/manifest.json"
+        try:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    text = await response.text()
+                    data = json.loads(text)
+                    data['id'] = ext_name
+                    
+                    # حفظ الاسم العربي في الكاش للاستخدام لاحقاً
+                    self.memory_cache[ext_name] = data
+                    display_name = data.get('name', ext_name)
+                    
+                    icon_data = await self._fetch_icon(session, ext_name)
+                    if icon_data:
+                        icon_path = os.path.join(self.cache_dir, f"{ext_name}_icon.png")
+                        with open(icon_path, 'wb') as f:
+                            f.write(icon_data)
+                        data['icon_path'] = icon_path
+                    else:
+                        data['icon_path'] = self.default_icon_path
+                    
+                    logger.debug(f"تم جلب ملف التعريف للإضافة '{display_name}' بنجاح")
+                    return data
+        except json.JSONDecodeError as e:
+            logger.error(f"خطأ في تحليل JSON للإضافة '{ext_name}': {str(e)}")
+        except Exception as e:
+            logger.error(f"خطأ في جلب ملف التعريف للإضافة '{ext_name}': {str(e)}")
+        return None
+
+    async def _fetch_manifests_batch(self, ext_names, batch_size=10):
+        """جلب مجموعة ن ملفات manifest.json بشكل متوازي"""
+        async with aiohttp.ClientSession(headers=self.headers) as session:
+            tasks = []
+            results = []
+            
+            # تقسيم الطلبات إلى مجموعات
+            for i in range(0, len(ext_names), batch_size):
+                batch = ext_names[i:i + batch_size]
+                batch_tasks = [self._fetch_manifest(session, name) for name in batch]
+                # تنفيذ المجموعة
+                batch_results = await asyncio.gather(*batch_tasks)
+                results.extend([r for r in batch_results if r is not None])
+                
+                # تأخير قصير بين المجموعات لتجنب تجاوز حد الطلبات
+                if i + batch_size < len(ext_names):
+                    await asyncio.sleep(0.5)
+            
+            return results
+
+    def process_extensions_response(self, response_data):
+        """معالجة البيانات المستلمة من GitHub"""
+        ext_dirs = [item['name'] for item in response_data if item['type'] == 'dir']
+        
+        # إنشاء حلقة غير متزامنة جديدة
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            # تنفيذ الطلبات على دفعات
+            extensions = loop.run_until_complete(
+                self._fetch_manifests_batch(ext_dirs, batch_size=5)
+            )
+            return extensions
+        finally:
+            loop.close()
+
+    @timed_lru_cache(seconds=3600, maxsize=1)
     def get_available_extensions(self, force_refresh=False):
         """جلب قائمة الإضافات المتوفرة"""
         try:
-            # التحقق من الكاش أولاً إذا لم يكن التحديث إجبارياً
             if not force_refresh:
                 cached_data = self.get_cached_data()
                 if cached_data:
+                    logger.info("تم استخدام البيانات المخزنة مؤقتاً للإضافات")
                     return self.filter_compatible_extensions(cached_data)
 
-            # التحقق من حد الطلبات
             rate_limit = self.check_rate_limit()
             if not rate_limit['allowed']:
+                logger.warning("تم تجاوز حد الطلبات")
                 return self.handle_rate_limit(rate_limit['reset_time'])
 
-            # جلب قائمة الإضافات من GitHub
-            response = requests.get(f"{self.base_url}/contents/store/extensions", headers=self.headers)
+            logger.info("جاري جلب قائمة الإضافات المتوفرة")
+            response = requests.get(
+                f"{self.base_url}/contents/store/extensions",
+                headers=self.headers
+            )
             
             if response.status_code == 200:
                 extensions = self.process_extensions_response(response.json())
                 self.update_cache(extensions)
+                logger.info(f"تم جلب {len(extensions)} إضافة بنجاح")
                 return self.filter_compatible_extensions(extensions)
-            else:
-                print(f"خطأ في جلب الإضافات: {response.status_code}")
-                return []
+            
+            logger.error(f"فشل في جلب قائمة الإضافات: {response.status_code}")
+            return []
 
         except Exception as e:
-            print(f"خطأ في جلب الإضافات: {str(e)}")
+            logger.error(f"خطأ في جلب الإضافات: {str(e)}")
             return []
 
     def filter_compatible_extensions(self, extensions):
-        """تصفية الإضافات المتوافقة فقط"""
+        """تصفية الإضافات المتوافقة"""
         compatible = []
         for ext in extensions:
-            # التحقق من توافق نظام التشغيل
             platforms = ext.get('platform', {})
+            display_name = ext.get('name', ext.get('id', 'إضافة غير معروفة'))  # استخدام الاسم العربي أو المعرف كاحتياطي
+            
             if not platforms.get(self.platform, False):
+                logger.debug(f"الإضافة '{display_name}' غير متوافقة مع النظام {self.platform}")
                 continue
 
-            # التحقق من إصدار التطبيق
             app_version = ext.get('app_version', {})
             min_version = app_version.get('min', '0.0.0')
             max_version = app_version.get('max', '999.999.999')
@@ -89,13 +227,18 @@ class ExtensionStore:
                     semver.VersionInfo.parse(self.app_version) <= 
                     semver.VersionInfo.parse(max_version)):
                     compatible.append(ext)
+                    logger.debug(f"الإضافة '{display_name}' متوافقة")
+                else:
+                    logger.debug(f"الإضافة '{display_name}' غير متوافقة مع إصدار التطبيق {self.app_version}")
             except ValueError:
+                logger.warning(f"خطأ في التحقق من إصدار الإضافة '{display_name}'")
                 continue
 
+        logger.info(f"تم العثور على {len(compatible)} إضافة متوافقة")
         return compatible
 
     def load_token(self):
-        """تحميل التوكن من ملف الإعدادات"""
+        """تحميل الرمز من ملف الإعدادات"""
         try:
             settings_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'settings.json')
             if os.path.exists(settings_path):
@@ -103,26 +246,26 @@ class ExtensionStore:
                     settings = json.load(f)
                     return settings.get('github_token')
         except Exception as e:
-            print(f"خطأ في تحميل التوكن: {str(e)}")
+            print(f"خطأ في تحميل الرمز: {str(e)}")
         return None
 
     def create_headers(self):
-        """إنشاء هيدرز الطلبات مع التوكن"""
+        """إنشاء هيدرز الطلبات مع ال��مز"""
         headers = {
             'Accept': 'application/vnd.github.v3+json',
             'User-Agent': 'Qirtas-Extension-Store'
         }
         if self.token:
             headers['Authorization'] = f'token {self.token}'
-            print("تم تطبيق التوكن بنجاح")
+            print("تم تطبيق الرمز بنجاح")
         else:
             print("لم يتم العثور على توكن")
         return headers
 
     def update_token(self, token):
-        """تحديث التوكن وحفظه"""
+        """تحديث الرمز وحفظه"""
         try:
-            # التحقق من صحة التوكن
+            # التحقق من صحة الرمز
             test_headers = {
                 'Accept': 'application/vnd.github.v3+json',
                 'Authorization': f'token {token}'
@@ -130,7 +273,7 @@ class ExtensionStore:
             response = requests.get('https://api.github.com/rate_limit', headers=test_headers)
             
             if response.status_code == 200:
-                # حفظ التوكن في الإعدادات
+                # حفظ الرمز في الإعدادات
                 settings_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'settings.json')
                 settings = {}
                 if os.path.exists(settings_path):
@@ -150,11 +293,11 @@ class ExtensionStore:
                 self.clear_cache()
                 return True
             else:
-                print("التوكن غير صالح")
+                print("الرمز غير صالح")
                 return False
                 
         except Exception as e:
-            print(f"خطأ في تحديث التوكن: {str(e)}")
+            print(f"خطأ في تحديث الرمز: {str(e)}")
             return False
 
     def download_extension(self, extension_id):
@@ -326,44 +469,40 @@ class ExtensionStore:
         return []
 
     def get_cached_data(self):
-        """جلب البيانات من الكاش"""
+        """جلب البيانات من الكاش مع التحقق من الصلاحية"""
         try:
             cache_file = os.path.join(self.cache_dir, "store_cache.json")
             if os.path.exists(cache_file):
-                cache_age = time.time() - os.path.getmtime(cache_file)
-                if cache_age < self.cache_timeout:
-                    with open(cache_file, 'r', encoding='utf-8') as f:
-                        return json.load(f)
+                with open(cache_file, 'r', encoding='utf-8') as f:
+                    cache_data = json.load(f)
+                    
+                # التحقق من عمر الكاش
+                if time.time() - cache_data['timestamp'] < self.cache_timeout:
+                    return cache_data['extensions']
             return None
         except Exception as e:
             print(f"خطأ في قراءة الكاش: {str(e)}")
             return None
 
     def update_cache(self, data):
-        """تحديث الكاش"""
+        """تحديث الكاش مع إضافة timestamp"""
         try:
+            cache_data = {
+                'timestamp': time.time(),
+                'extensions': data
+            }
             cache_file = os.path.join(self.cache_dir, "store_cache.json")
             with open(cache_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=4)
+                json.dump(cache_data, f, ensure_ascii=False, indent=4)
         except Exception as e:
             print(f"خطأ في تحديث الكاش: {str(e)}")
 
-    def process_extensions_response(self, response_data):
-        """معالجة البيانات المستلمة من GitHub"""
-        extensions = []
-        for item in response_data:
-            try:
-                if item['type'] == 'dir':
-                    manifest_url = f"{self.raw_base_url}/store/extensions/{item['name']}/manifest.json"
-                    manifest_response = requests.get(manifest_url, headers=self.headers)
-                    
-                    if manifest_response.status_code == 200:
-                        manifest = manifest_response.json()
-                        manifest['id'] = item['name']
-                        extensions.append(manifest)
-                        
-            except Exception as e:
-                print(f"خطأ في معالجة الإضافة {item.get('name', '')}: {str(e)}")
-                continue
-                
-        return extensions
+    def get_extension_icon(self, extension_id):
+        """الحصول على مسار أيقونة الإضافة"""
+        # التحقق من وجود الأيقونة في الكاش
+        icon_path = os.path.join(self.cache_dir, f"{extension_id}_icon.png")
+        if os.path.exists(icon_path):
+            return icon_path
+            
+        # إرجاع الأيقونة الافتراضية
+        return self.default_icon_path

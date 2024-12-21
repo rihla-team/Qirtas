@@ -119,7 +119,7 @@ class AutoSaver(QObject):
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
                 
-            with open(current_file, 'w', encoding='utf-8') as f:
+            with open(current_file, 'w') as f:
                 f.write(current_editor.toPlainText())
                 
             current_editor.document().setModified(False)

@@ -1,40 +1,37 @@
 {
+    "app_version": "1.0.1",
+    "updates": {
+        "auto_check": true,
+        "check_interval": "يومياً",
+        "last_check": 1734814658.984599
+    },
+    "editor": {
+        "auto_save": {
+            "enabled": true,
+            "interval": 30
+        },
+        "theme": "light",
+        "word_wrap": true
+    },
     "font": {
-        "family": "Consolas",
+        "family": "Arial",
         "size": 12,
         "bold": false,
         "italic": false,
         "underline": false
     },
-    "editor": {
-        "syntax_highlighting": {
-            "enabled": true,
-            "theme": "borland",
-            "auto_detect": true
-        },
-        "theme": "dark",
-        "auto_correct": false,
-        "line_numbers": true,
-        "auto_save": {
-            "enabled": true
-        }
-    },
     "extensions": {
         "auto_update": true,
         "update_interval": "يومياً",
         "update_time": "00:00",
-        "safe_mode": false,
-        "github_token": "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",
-        "enabled": {
-            "reverse_text": true
-        },
-        "disabled": [
-            "arabic_stats",
-            "code_documenter",
-            "project_manager",
-            "text_analyzer",
-            "translator"
-        ]
+        "github_token": "",
+        "enabled": {},
+        "disabled": []
     },
-    "github_token": "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"
+    "tabs": {
+        "movable": true,
+        "scroll_buttons": true,
+        "elide_mode": "none",
+        "max_closed_tabs": 10
+    }
 }

@@ -1,15 +1,15 @@
 import sys
 import os
-from PyQt5.QtWidgets import QApplication, QMainWindow, QTextEdit, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt, pyqtSignal, QObject
 from editor.text_editor import ArabicEditor
 from utils.extensions_manager import ExtensionsManager
 def main():
     app = QApplication(sys.argv)
-    app_version = "1.0.0"
+    app_version = "1.0.1"
     
     # تحميل التنسيق
-    style_path = os.path.join(os.path.dirname(__file__), 'resources', 'style.qss')
+    style_path = os.path.join(os.path.dirname(__file__), 'resources', 'styles', 'style.qss')
     try:
         with open(style_path, 'r', encoding='utf-8') as style_file:
             style = style_file.read()

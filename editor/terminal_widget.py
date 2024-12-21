@@ -1,3 +1,4 @@
+import logging
 from PyQt5.QtWidgets import  QTextEdit, QSplitter, QMenu, QHBoxLayout, QLineEdit, QPushButton, QShortcut, QLabel, QDialog, QTabWidget, QApplication 
 from PyQt5.QtCore import Qt, QProcess       
 from PyQt5.QtGui import QTextCursor, QFont, QColor, QKeySequence, QTextCharFormat, QTextBlockFormat, QTextDocument 
@@ -15,7 +16,9 @@ import sys
 from pathlib import Path
 import subprocess
 from terminal_tools import *
-
+from utils.arabic_logger import setup_arabic_logging
+import logging
+setup_arabic_logging()
 # تعيين ترميز النظام
 if sys.platform.startswith('win'):
     # Windows
@@ -50,6 +53,7 @@ class ArabicTerminal(QTextEdit):
         self.current_command = ""
         self.prompt_symbol = "$"  # رمز موجه الأوامر
         self.current_directory = os.getcwd()
+        self.logger = logging.getLogger('ArabicTerminal')
         # تعريف الألوان باستخدام QColor
         self.colors = {
             'prompt': QColor('#98C379'), # لون موني
@@ -1411,12 +1415,12 @@ class ArabicTerminal(QTextEdit):
                             # إضافة القواميس كما هي
                             self.command_history.append(entry)
                     
-                    print(f"تم تحميل {len(self.command_history)} أمر من التاريخ")
+                    self.logger.info(f"تم تحميل {len(self.command_history)} أمر من التاريخ")
             else:
                 self.command_history = []
                 
         except Exception as e:
-            print(f"خطأ في تحميل التاريخ: {str(e)}")
+            self.logger.error(f"خطأ في تحميل التاريخ: {str(e)}")
             self.command_history = []
 
     def execute_command(self, command):
