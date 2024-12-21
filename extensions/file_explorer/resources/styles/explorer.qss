@@ -1,0 +1,117 @@
+/* تنسيق الرأس القابل للطي */
+CollapsibleHeader {
+    background-color: #121111;
+    border: none;
+    padding: 2px;
+    min-height: 30px;
+}
+
+CollapsibleHeader QLabel {
+    color: #e0e0e0;
+    font-weight: bold;
+    font-size: 13px;
+    padding: 4px 8px;
+}
+
+CollapsibleHeader QPushButton {
+    border: none;
+    background: transparent;
+    color: #e0e0e0;
+    padding: 2px;
+    border-radius: 3px;
+}
+
+CollapsibleHeader QPushButton:hover {
+    background-color: #2a2d2e;
+}
+
+CollapsibleHeader QToolButton {
+    border: none;
+    background: transparent;
+    color: #e0e0e0;
+    padding: 4px;
+    border-radius: 3px;
+    min-width: 24px;
+    min-height: 24px;
+    opacity: 0.7;
+}
+
+CollapsibleHeader QToolButton:hover {
+    background-color: #2a2d2e;
+    opacity: 1;
+}
+
+CollapsibleHeader QToolButton:pressed {
+    background-color: #013445;
+}
+
+/* تنسيق انتقالي للأزرار */
+CollapsibleHeader QWidget#buttons_widget {
+    background: transparent;
+}
+
+/* تنسيق شجرة الملفات */
+QTreeView {
+    background-color: #121111;
+    border: none;
+    color: #ffffff;
+    selection-background-color: #013445;
+    selection-color: #ffffff;
+    outline: none;
+}
+
+QTreeView::item {
+    padding: 4px;
+    border-radius: 3px;
+}
+
+QTreeView::item:hover {
+    background-color: #2a2d2e;
+}
+
+QTreeView::item:selected {
+    background-color: #013445;
+}
+
+QTreeView::branch {
+    background-color: transparent;
+    padding: 2px;
+}
+
+
+/* تنسيق شريط التمرير */
+QScrollBar:vertical {
+    background: #121111;
+    width: 8px;
+    margin: 0;
+}
+
+QScrollBar::handle:vertical {
+    background: #424242;
+    min-height: 20px;
+    border-radius: 4px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #525252;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    height: 0;
+    border: none;
+}
+
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
+    background: none;
+}
+
+/* تنسيق التلميحات */
+QToolTip {
+    background-color: #121111;
+    color: #e0e0e0;
+    border: 1px solid #424242;
+    border-radius: 4px;
+    padding: 4px;
+}

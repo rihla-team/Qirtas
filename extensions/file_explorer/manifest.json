@@ -1,0 +1,23 @@
+{
+    "name":  "مدير الملفات",
+    "id": "file_explorer",
+    "version": "1.0.0",
+    "description": "مدير ملفات جانبي مشابه لـ VS Code",
+    "category": "core",
+    "author": "فريق رحلة",
+    "main": "file_explorer.py",
+    "icon": "icon.png",
+    "requires": {
+        "arabic-reshaper": ">=2.1.0",
+        "python-bidi": ">=0.4.2"
+    },
+    "platform": {
+        "windows": true,
+        "linux": true,
+        "macos": true
+    },
+    "app_version": {
+        "min": "1.0.0",
+        "max": "2.0.0"
+    }
+} 

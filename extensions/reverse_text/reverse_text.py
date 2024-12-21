@@ -77,13 +77,11 @@ class ReverseTextExtension:
         import re
         pattern = r'[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+'
         
-        def replace_arabic(match):
-            arabic_text = match.group(0)
-            reshaped_text = arabic_reshaper.reshape(arabic_text)
-            return get_display(reshaped_text)
+        # إعادة تشكيل النص العربي
+        reshaped_text = arabic_reshaper.reshape(text)
+        # عكس اتجاه النص بدون تمرير النمط
+        return get_display(reshaped_text)
         
-        # استبدال النصوص العربية فقط
-        return re.sub(pattern, replace_arabic, text)
 
     def reverse_left_to_right(self, text):
         # نفس المنطق السابق ولكن مع عكس الكلمات من اليسار لليمين

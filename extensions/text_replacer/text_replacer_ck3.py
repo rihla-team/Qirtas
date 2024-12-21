@@ -49,7 +49,6 @@ class TextReplacerExtension:
         new_texts = self.text_edit.toPlainText()
         new_dict = self.parse_texts(new_texts)
         
-        print(f"القيم الجديدة: {new_dict}")
         
         if not new_dict:
             QMessageBox.warning(
@@ -178,7 +177,6 @@ class TextReplacerExtension:
                 key = match.group(1)  # نحتفظ بالمعرف كاملاً مع الرقم
                 value = match.group(2)
                 result[key] = value
-                print(f"تم العثور على: {key} = {value}")
                 continue
             
             # النمط الثاني للمعرفات بدون رقم
@@ -188,7 +186,6 @@ class TextReplacerExtension:
                 value = match.group(2)
                 # نضيف :0 فقط إذا لم يكن هناك رقم
                 result[f"{key}:0"] = value
-                print(f"تم العثور على: {key}:0 = {value}")
                 
         return result
 
