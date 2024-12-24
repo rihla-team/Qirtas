@@ -6,7 +6,6 @@ import semver
 import asyncio
 import aiohttp
 import logging
-from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache, wraps
 
 # إعداد المسجل

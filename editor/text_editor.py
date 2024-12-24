@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (QMainWindow, QVBoxLayout, 
                            QWidget, QFileDialog, QMessageBox, QAction,
-                           QStatusBar,QFontDialog, QTextEdit, QSplitter, QHBoxLayout, QPushButton, QLabel,QToolBar, QDockWidget, QStackedWidget, QProgressDialog
+                           QStatusBar,QFontDialog, QTextEdit, QSplitter, QHBoxLayout, QPushButton, QLabel,QProgressDialog
                            )  
 from PyQt5.QtGui import QTextCharFormat
 import os

@@ -1,4 +1,8 @@
-import speedtest
+try:
+    import speedtest
+except ImportError:
+    import speedtest_cli as speedtest
+    pass
 import socket
 import psutil
 import subprocess
@@ -21,8 +25,6 @@ class SpeedTestThread(QThread):
             
             if speedtest is None:
                 self.progress.emit("تعذر تحميل مكتبة speedtest. جاري استخدام طريقة بديلة...\n")
-                # استخدم طريقة بديلة لفحص السرعة
-                # مثلاً يمكنك استخدام requests لفحص الاتصال فقط
                 return
             
             # إنشاء كائن Speedtest

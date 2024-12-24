@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (QDockWidget, QWidget, QVBoxLayout, 
-                           QToolBar, QStackedWidget, QAction, QShortcut)
-from PyQt5.QtGui import QIcon, QKeySequence
+                           QToolBar, QStackedWidget, QAction)
+from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt,QSize
 import os
 from  .arabic_logger import setup_arabic_logging

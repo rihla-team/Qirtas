@@ -1,7 +1,7 @@
 import logging
-from PyQt5.QtWidgets import  QTextEdit, QSplitter, QMenu, QHBoxLayout, QLineEdit, QPushButton, QShortcut, QLabel, QDialog, QTabWidget, QApplication 
-from PyQt5.QtCore import Qt, QProcess       
-from PyQt5.QtGui import QTextCursor, QFont, QColor, QKeySequence, QTextCharFormat, QTextBlockFormat, QTextDocument 
+from PyQt5.QtWidgets import  QTextEdit, QSplitter, QMenu, QHBoxLayout, QLineEdit, QPushButton, QShortcut, QLabel, QDialog, QTabWidget 
+from PyQt5.QtCore import Qt, QProcess
+from PyQt5.QtGui import QTextCursor, QFont, QColor, QKeySequence, QTextCharFormat, QTextDocument, QTextBlockFormat
 from PyQt5.QtWidgets import QVBoxLayout , QCheckBox, QMessageBox
 from prompt_toolkit.shortcuts import PromptSession
 from prompt_toolkit.output import create_output

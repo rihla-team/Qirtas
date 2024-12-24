@@ -3,10 +3,10 @@ from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                            QScrollArea, QWidget, QPushButton, QCheckBox,
                            QTabWidget, QTextBrowser, QGroupBox, QGridLayout,
                            QLineEdit, QMenu, QAction, QMessageBox,QApplication,
-                            QToolButton, QTextEdit, QComboBox, QFormLayout,
+                            QToolButton, QComboBox,
                            QMainWindow, QProgressDialog, QTimeEdit, QFileDialog,QFrame )
 from PyQt5.QtCore import Qt, QTimer,QTime
-from PyQt5.QtGui import  QPixmap,  QIcon, QMovie
+from PyQt5.QtGui import  QPixmap,  QIcon
 import os
 import json
 import logging
@@ -772,7 +772,7 @@ class ExtensionManagerDialog(QMainWindow):
         
         layout = QVBoxLayout()
         
-        # شريط الأدوات العلوي
+        # شريط الأدوات ��لعلوي
         toolbar = QHBoxLayout()
         
         # تصفية ��سب الحالة
@@ -1597,99 +1597,6 @@ class ExtensionManagerDialog(QMainWindow):
         except:
             return 0
 
-    def install_extension(self, ext_id):
-        """تثبت أو تحديث إضافة من المتجر"""
-        try:
-            # إظهار شريط التقدم
-            progress = QProgressDialog("جار تثبيت الإضافة...", "إلغاء", 0, 100, self)
-            progress.setWindowTitle("تثبيت الإضافة")
-            progress.setWindowModality(Qt.WindowModal)
-            progress.setValue(0)
-            
-            # جلب معلومات الإضافة من المتجر
-            api_url = f"{self.store.base_url}/contents/store/extensions/{ext_id}"
-            headers = {
-                'Accept': 'application/vnd.github.v3+json',
-                'User-Agent': 'Qirtas-Extension-Store'
-            }
-            
-            progress.setValue(10)
-            
-            # جلب محتويات مجلد الإضافة
-            response = requests.get(api_url, headers=headers)
-            if response.status_code != 200:
-                raise Exception(f"فشل في جلب محتويات الإضافة: {response.status_code}")
-            
-            contents = response.json()
-            progress.setValue(20)
-            
-            # إنشاء مجلد لإضافة
-            extensions_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'extensions')
-            ext_dir = os.path.join(extensions_dir, ext_id)
-            os.makedirs(ext_dir, exist_ok=True)
-            
-            progress.setValue(30)
-            
-            # تنزيل ملفات الإضافة
-            total_files = len([item for item in contents if item['type'] == 'file'])
-            current_file = 0
-            
-            for item in contents:
-                if item['type'] == 'file':
-                    current_file += 1
-                    progress_value = 30 + (60 * current_file // total_files)
-                    progress.setValue(progress_value)
-                    
-                    if progress.wasCanceled():
-                        import shutil
-                        shutil.rmtree(ext_dir, ignore_errors=True)
-                        return
-                    
-                    # تنزيل الملف
-                    file_url = f"{self.store.raw_base_url}/store/extensions/{ext_id}/{item['name']}"
-                    file_response = requests.get(file_url, headers=headers)
-                    
-                    if file_response.status_code == 200:
-                        file_path = os.path.join(ext_dir, item['name'])
-                        with open(file_path, 'wb') as f:
-                            f.write(file_response.content)
-                    else:
-                        raise Exception(f"فشل في تنزيل الملف {item['name']}")
-            
-            progress.setValue(80)
-            
-            # تحديث قائمة الإضافات
-            if hasattr(self.extensions_manager, 'scan_extensions'):
-                self.extensions_manager.scan_extensions()
-            
-            # تحديث الكاش
-            self.update_cache()
-            
-            progress.setValue(90)
-            
-            # تفعيل الإضافة وتحديث القائمة
-            if hasattr(self.extensions_manager, 'disabled_extensions'):
-                if ext_id not in self.extensions_manager.disabled_extensions:
-                    if hasattr(self.extensions_manager, 'activate_extension'):
-                        self.extensions_manager.activate_extension(ext_id)
-            
-            if hasattr(self.extensions_manager, 'setup_menu'):
-                self.extensions_manager.setup_menu()
-            
-            progress.setValue(100)
-            
-            # إظهار رسالة نجاح
-            QMessageBox.information(self, "تم", "تم تثبيت الإضافة بنجاح")
-            
-            # تحديث الواجهة
-            self.refresh_store_view()
-            self.refresh_extensions()
-            
-        except Exception as e:
-            QMessageBox.critical(self, "خطأ", f"حدث خطأ أثناء تثبيت الإضافة:\n{str(e)}")
-            if 'ext_dir' in locals():
-                import shutil
-                shutil.rmtree(ext_dir, ignore_errors=True)
 
     def update_cache(self):
         """تحديث ملف الكاش"""
@@ -1817,17 +1724,6 @@ class ExtensionManagerDialog(QMainWindow):
                 }
                 QLabel {
                     color: #ffffff;
-                }
-                QPushButton {
-                    background-color: #054229;
-                    color: #ffffff;
-                    border: none;
-                    border-radius: 4px;
-                    padding: 8px 16px;
-                    min-width: 90px;
-                }
-                QPushButton:hover {
-                    background-color: #065435;
                 }
             """)
             msg.exec_()
@@ -2208,100 +2104,125 @@ class ExtensionManagerDialog(QMainWindow):
         """تثبت أو تحديث إضافة من المتجر"""
         try:
             # إظهار شريط التقدم
-            progress = QProgressDialog("جار تثبيت الإضافة...", "إلغاء", 0, 100, self)
+            progress = QProgressDialog("جار تثبيت الإضافة...", None, 0, 100, self)
             progress.setWindowTitle("تثبيت الإضافة")
             progress.setWindowModality(Qt.WindowModal)
+            progress.setCancelButton(None)
             progress.setValue(0)
             
-            # جلب معلومات الإضافة من المتجر
-            api_url = f"{self.store.base_url}/contents/store/extensions/{ext_id}"
+            # قراءة التوكن من ملف الإعدادات
+            settings_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'settings.json')
+            try:
+                with open(settings_path, 'r', encoding='utf-8') as f:
+                    settings = json.load(f)
+                    github_token = settings.get('extensions', {}).get('github_token')
+                    if not github_token:
+                        raise Exception("لم يتم العثور على توكن GitHub في الإعدادات")
+            except Exception as e:
+                raise Exception(f"خطأ في قراءة ملف الإعدادات: {str(e)}")
+            
+            # تحضير الهيدرز مع التوكن
             headers = {
                 'Accept': 'application/vnd.github.v3+json',
+                'Authorization': f'token {github_token}',
                 'User-Agent': 'Qirtas-Extension-Store'
             }
             
             progress.setValue(10)
+            progress.setLabelText("جار التحقق من المتطلبات...")
             
-            # جلب محتويات مجلد الإضافة
-            response = requests.get(api_url, headers=headers)
-            if response.status_code != 200:
-                raise Exception(f"فشل في جلب محتويات الإضافة: {response.status_code}")
+            # التحقق من manifest.json
+            try:
+                manifest_url = f"{self.store.raw_base_url}/store/extensions/{ext_id}/manifest.json"
+                manifest_response = requests.get(manifest_url, headers=headers)
+                manifest_response.raise_for_status()
+                manifest_content = manifest_response.json()
+            except requests.exceptions.RequestException as e:
+                if manifest_response.status_code == 403:
+                    raise Exception("خطأ في الوصول: تأكد من صلاحية توكن GitHub")
+                elif manifest_response.status_code == 404:
+                    raise Exception("لم يتم العثور على ملف manifest.json")
+                else:
+                    raise Exception(f"خطأ في الوصول إلى manifest.json: {str(e)}")
+        
             
-            contents = response.json()
-            progress.setValue(20)
+            # التحقق من المتطلبات وتثبيتها
+            if 'requirements' in manifest_content and manifest_content['requirements']:
+                progress.close()
+                reply = QMessageBox.question(
+                    self,
+                    "تثبيت المتطلبات",
+                    f"تحتاج هذه الإضافة إلى المكتبات التالية:\n- " + "\n- ".join(manifest_content['requirements']) + "\n\nهل تريد تثبيتها الآن؟",
+                    QMessageBox.Yes | QMessageBox.No
+                )
+                
+                if reply == QMessageBox.Yes:
+                    if not self.install_required_packages(manifest_content['requirements']):
+                        raise Exception("فشل في تثبيت المتطلبات المطلوبة")
+                else:
+                    raise Exception("تم إلغاء التثبيت من قبل المستخدم")
+                
+                progress = QProgressDialog("جار تثبيت الإضافة...", None, 0, 100, self)
+                progress.setWindowTitle("تثبيت الإضافة")
+                progress.setWindowModality(Qt.WindowModal)
+                progress.setCancelButton(None)
+                progress.setValue(20)
             
-            # التحقق من وجود manifest.json وقراءته
-            manifest_content = None
-            for item in contents:
-                if item['name'] == 'manifest.json':
-                    manifest_url = f"{self.store.raw_base_url}/store/extensions/{ext_id}/manifest.json"
-                    manifest_response = requests.get(manifest_url, headers=headers)
-                    if manifest_response.status_code == 200:
-                        manifest_content = json.loads(manifest_response.content)
-                    break
+            # جلب محتويات الإضافة
+            progress.setLabelText("جار تنزيل ملفات الإضافة...")
+            api_url = f"{self.store.base_url}/contents/store/extensions/{ext_id}"
+            try:
+                response = requests.get(api_url, headers=headers)
+                response.raise_for_status()
+                contents = response.json()
+            except requests.exceptions.RequestException as e:
+                if response.status_code == 403:
+                    raise Exception("خطأ في الوصول: تأكد من صلاحية توكن GitHub")
+                elif response.status_code == 404:
+                    raise Exception("لم يتم العثور على مجلد الإضافة")
+                else:
+                    raise Exception(f"خطأ في جلب محتويات الإضافة: {str(e)}")
             
-            if manifest_content and 'requirements' in manifest_content:
-                # سؤال المستخدم عن تثبيت المتطلبات
-                requirements = manifest_content['requirements']
-                if requirements:
-                    reply = QMessageBox.question(
-                        self,
-                        "تثبيت المتطلبات",
-                        f"تحتاج هذه الإضافة إلى المكتبات التالية:\n- " + "\n- ".join(requirements) + "\n\nهل تريد تثبيتها الآن؟",
-                        QMessageBox.Yes | QMessageBox.No
-                    )
-                    
-                    if reply == QMessageBox.Yes:
-                        if not self.install_required_packages(requirements):
-                            raise Exception("فشل في تثبيت المتطلبات المطلوبة")
-                    else:
-                        raise Exception("تم إلغاء التثبيت من قبل المستخدم")
-            
-            # إنشاء مجلد للإضافة
+            # إنشاء مجلد الإضافة
             extensions_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'extensions')
             ext_dir = os.path.join(extensions_dir, ext_id)
             os.makedirs(ext_dir, exist_ok=True)
             
-            progress.setValue(30)
-            
-            # تنزيل ملفات الإضافة
+            # تنزيل الملفات
             total_files = len([item for item in contents if item['type'] == 'file'])
-            current_file = 0
-            
-            for item in contents:
+            for i, item in enumerate(contents):
                 if item['type'] == 'file':
-                    current_file += 1
-                    progress_value = 30 + (60 * current_file // total_files)
+                    progress_value = 30 + (60 * i // total_files)
                     progress.setValue(progress_value)
+                    progress.setLabelText(f"جار تنزيل: {item['name']}")
                     
-                    if progress.wasCanceled():
-                        import shutil
-                        shutil.rmtree(ext_dir, ignore_errors=True)
-                        return
-                    
-                    # تنزيل الملف
-                    file_url = f"{self.store.raw_base_url}/store/extensions/{ext_id}/{item['name']}"
-                    file_response = requests.get(file_url, headers=headers)
-                    
-                    if file_response.status_code == 200:
+                    try:
+                        file_url = f"{self.store.raw_base_url}/store/extensions/{ext_id}/{item['name']}"
+                        file_response = requests.get(file_url, headers=headers)
+                        file_response.raise_for_status()
+                        
                         file_path = os.path.join(ext_dir, item['name'])
                         with open(file_path, 'wb') as f:
                             f.write(file_response.content)
-                    else:
-                        raise Exception(f"فشل في تنزيل الملف {item['name']}")
+                    except requests.exceptions.RequestException as e:
+                        raise Exception(f"فشل في تنزيل الملف {item['name']}: {str(e)}")
             
+            # إكمال التثبيت
             progress.setValue(90)
+            progress.setLabelText("جار إكمال التثبيت...")
             
-            # تحديث قائمة الإضافات
+            # تحديث وتفعيل الإضافة
+            self.update_cache()
             if hasattr(self.extensions_manager, 'scan_extensions'):
                 self.extensions_manager.scan_extensions()
             
-            # تحديث الكاش
-            self.update_cache()
+            if ext_id not in getattr(self.extensions_manager, 'disabled_extensions', []):
+                if hasattr(self.extensions_manager, 'activate_extension'):
+                    self.extensions_manager.activate_extension(ext_id)
             
             progress.setValue(100)
+            progress.close()
             
-            # إظهار رسالة نجاح
             QMessageBox.information(self, "تم", "تم تثبيت الإضافة بنجاح")
             
             # تحديث الواجهة
@@ -2309,8 +2230,10 @@ class ExtensionManagerDialog(QMainWindow):
             self.refresh_extensions()
             
         except Exception as e:
+            if 'progress' in locals():
+                progress.close()
             QMessageBox.critical(self, "خطأ", f"حدث خطأ أثناء تثبيت الإضافة:\n{str(e)}")
-            if 'ext_dir' in locals():
+            if 'ext_dir' in locals() and os.path.exists(ext_dir):
                 import shutil
                 shutil.rmtree(ext_dir, ignore_errors=True)
 
@@ -2322,8 +2245,7 @@ class ExtensionManagerDialog(QMainWindow):
                 # قراءة الكاش الحالي
                 with open(cache_path, 'r', encoding='utf-8') as f:
                     cache_data = json.load(f)
-                
-                # تحديث ��علومات الإضافات المثبتة
+                # تحديث معلومات الإضافات المثبتة
                 for ext in cache_data:
                     if ext['id'] in self.extensions_manager.extensions:
                         # حذف معلومات الإصدار من الكاش
@@ -2441,17 +2363,6 @@ class ExtensionManagerDialog(QMainWindow):
                 QLabel {
                     color: #ffffff;
                 }
-                QPushButton {
-                    background-color: #054229;
-                    color: #ffffff;
-                    border: none;
-                    border-radius: 4px;
-                    padding: 8px 16px;
-                    min-width: 90px;
-                }
-                QPushButton:hover {
-                    background-color: #065435;
-                }
             """)
             msg.exec_()
             
@@ -2504,91 +2415,117 @@ class ExtensionManagerDialog(QMainWindow):
             self.restoreState(self.settings.value('windowState'))
 
     def install_required_packages(self, requirements):
-        """تثبيت الحزم المطلوبة"""
+        """تثبيت المكتبات المطلوبة للإضافة"""
         try:
-            print("بدء عملية تثبيت المكتبات...")
-            print(f"المكتبات المطلوبة: {requirements}")
-            
-            # إنشاء نافذة تقدم العملية
             progress = QProgressDialog(self)
             progress.setWindowTitle("تثبيت المتطلبات")
             progress.setLabelText("جاري تثبيت المكتبات المطلوبة...")
             progress.setMinimum(0)
-            progress.setMaximum(len(requirements))
+            progress.setMaximum(len(requirements) * 100)
             progress.setCancelButton(None)
             progress.setWindowModality(Qt.WindowModal)
             
-            installed_packages = []
-            failed_packages = []
-            
-            for i, package in enumerate(requirements):
+            # الحصول على مسار البيئة الافتراضية أو مسار التطبيق
+            if hasattr(sys, '_MEIPASS'): 
                 try:
-                    print(f"\nجاري تثبيت {package}...")
-                    progress.setValue(i)
-                    progress.setLabelText(f"جاري تثبيت {package}...")
-                    QApplication.processEvents()
-                    
-                    # التحقق مما إذا كانت الحزمة مثبتة بالفعل
-                    try:
-                        pkg_resources.require(package)
-                        print(f"المكتبة {package} مثبتة بالفعل")
-                        installed_packages.append(package)
-                        continue
-                    except (pkg_resources.DistributionNotFound, pkg_resources.VersionConflict):
-                        print(f"المكتبة {package} غير مثبتة، جاري التثبيت...")
-                    
-                    # تثبيت الحزمة
-                    process = subprocess.Popen(
-                        [sys.executable, "-m", "pip", "install", package, "--user"],
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        universal_newlines=True
-                    )
-                    
-                    # قراءة المخرجات
-                    stdout, stderr = process.communicate()
-                    print("مخرجات pip:")
-                    print(stdout)
-                    
-                    if process.returncode != 0:
-                        print(f"خطأ في تثبيت {package}:")
-                        print(stderr)
-                        failed_packages.append((package, stderr))
-                    else:
-                        print(f"تم تثبيت {package} بنجاح")
-                        installed_packages.append(package)
-                    
+                    python_path = os.path.join(sys._MEIPASS, 'python')
+                    site_packages = os.path.join(sys._MEIPASS, 'lib', 'site-packages')
                 except Exception as e:
-                    print(f"خطأ غير متوقع أثناء تثبيت {package}:")
-                    print(str(e))
-                    failed_packages.append((package, str(e)))
+                    print(f"خطأ في الحصول على مسار البيئة الافتراضية: {str(e)}")
+                    return False
+                
+            else:
+                try:
+                    python_path = sys.executable
+                    site_packages = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'lib', 'site-packages')
+                except Exception as e:
+                    print(f"خطأ في الحصول على مسار البيئة الافتراضية: {str(e)}")
+                    return False
+            
+            os.makedirs(site_packages, exist_ok=True)
+            try:
+                for i, package in enumerate(requirements):
+                    base_progress = i * 100
+                    progress.setValue(base_progress)
+                    progress.setLabelText(f"جاري تثبيت {package}...")
                     
+                    try:
+                        # تحديد الأمر المناسب بناءً على نوع التشغيل
+                        if hasattr(sys, '_MEIPASS'):
+                            # في حالة التشغيل من خلال PyInstaller
+                            pip_command = [
+                                sys.executable, "-m", "pip", "install",
+                                package,
+                                "--target", site_packages,
+                                "--upgrade",
+                                "--no-cache-dir",
+                                "--no-deps"  # تجنب تثبيت التبعيات لتفادي المشاكل مع PyInstaller
+                            ]
+                        else:
+                            # في حالة التشغيل العادي
+                            pip_command = [
+                                python_path, "-m", "pip", "install",
+                                package,
+                                f"--target={site_packages}",
+                                "--upgrade",
+                                "--no-cache-dir"
+                            ]
+                            
+                        process = subprocess.Popen(
+                            pip_command,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            universal_newlines=True,
+                            bufsize=1
+                        )
+                    except Exception as e:
+                        print(f"خطأ في إنشاء عملية pip: {str(e)}")
+                        return False
+            except Exception as e:
+                print(f"خطأ في إنشاء عملية pip: {str(e)}")
+                return False
+            try:
+                    # تتبع تقدم التثبيت
+                    while True:
+                        output = process.stdout.readline()
+                        if output == '' and process.poll() is not None:
+                            break
+                        if output:
+                            # تحديث حالة التقدم بناءً على مخرجات pip
+                            if "Collecting" in output:
+                                progress.setLabelText(f"جاري تحميل {package}...")
+                                progress.setValue(base_progress + 25)
+                            elif "Downloading" in output:
+                                progress.setLabelText(f"جاري تنزيل {package}...")
+                                progress.setValue(base_progress + 50)
+                            elif "Installing" in output:
+                                progress.setLabelText(f"جاري تثبيت {package}...")
+                                progress.setValue(base_progress + 75)
+                    
+                    # التحقق من نجاح التثبيت
+                    if process.returncode != 0:
+                        _, stderr = process.communicate()
+                        raise Exception(f"فشل تثبيت {package}:\n{stderr}")
+                    
+                    # إضافة مسار المكتبات إلى sys.path
+                    if site_packages not in sys.path:
+                        sys.path.append(site_packages)
+                    
+                    progress.setValue(base_progress + 100)
+            except Exception as e:
+                progress.close()
+                QMessageBox.critical(self, "خطأ", f"حدث خطأ أثناء تثبيت {package}:\n{str(e)}")
+                return False
+            
+            progress.setValue(progress.maximum())
             progress.close()
-            
-            # عرض نتيجة التثبيت
-            print("\nملخص التثبيت:")
-            print(f"تم تثبيت: {installed_packages}")
-            print(f"فشل تثبيت: {[pkg for pkg, _ in failed_packages]}")
-            
-            if installed_packages:
-                success_msg = "تم تثبيت المكتبات التالية بنجاح:\n- " + "\n- ".join(installed_packages)
-                if failed_packages:
-                    success_msg += "\n\nفشل تثبيت المكتبات التالية:\n"
-                    for pkg, err in failed_packages:
-                        success_msg += f"- {pkg}: {err}\n"
-                
-                QMessageBox.information(self, "اكتمل التثبيت", success_msg)
-            elif failed_packages:
-                error_msg = "فشل تثبيت المكتبات التالية:\n"
-                for pkg, err in failed_packages:
-                    error_msg += f"- {pkg}: {err}\n"
-                QMessageBox.warning(self, "خطأ في التثبيت", error_msg)
-                
-            return len(failed_packages) == 0
+            QMessageBox.information(self, "تم", "تم تثبيت جميع المكتبات بنجاح")
+            return True
             
         except Exception as e:
-            print(f"خطأ عام في عملية التثبيت: {str(e)}")
-            QMessageBox.critical(self, "خطأ", f"حدث خطأ أثناء تثبيت المكتبات:\n{str(e)}")
+            if 'progress' in locals():
+                progress.close()
+            QMessageBox.critical(self, "خطأ", f"حدث خطأ عام:\n{str(e)}")
             return False
 
 

@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QTextEdit, QWidget, QHBoxLayout, QMenu, QAction, QFileDialog, QMessageBox
+from PyQt5.QtWidgets import QTextEdit, QWidget, QHBoxLayout, QMenu, QAction, QMessageBox
 from PyQt5.QtGui import QTextOption, QTextCharFormat, QColor, QTextCursor, QKeySequence
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 from utils.syntax_highlighter import CodeHighlighter

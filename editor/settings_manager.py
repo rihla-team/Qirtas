@@ -2,8 +2,6 @@ import json
 import os
 from PyQt5.QtGui import QFont
 from datetime import datetime
-import time
-import sys
 
 class SettingsManager:
     def __init__(self):

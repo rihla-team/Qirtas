@@ -1,14 +1,10 @@
 from typing import Dict, List
 import ast
-import os
-import json
-from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QTextBrowser, QPushButton, 
-                            QComboBox, QHBoxLayout, QTreeWidget, QTreeWidgetItem, 
-                            QSplitter, QLabel, QWidget, QTabWidget, QFileDialog, QMessageBox, QPlainTextEdit, QLineEdit)
+from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QTextBrowser,
+ QTreeWidget, QTreeWidgetItem, 
+                            QSplitter, QLabel, QWidget, QTabWidget)
 from PyQt5.QtCore import Qt, QRegExp  # أضفنا QRegExp هنا
 from PyQt5.QtGui import QFont, QColor, QSyntaxHighlighter, QTextCharFormat
-from PyQt5.QtCore import QProcess
-import git
 
 class CodeDocumenter:
     """أداة لتوثيق وشرح الكود"""

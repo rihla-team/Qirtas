@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QLabel, QStatusBar, QPushButton, QMenu, QAction, QMessageBox
+from PyQt5.QtWidgets import QLabel, QStatusBar, QMenu, QAction
 from PyQt5.QtGui import QCursor
 from PyQt5.QtCore import QObject, pyqtSignal,Qt
 import json

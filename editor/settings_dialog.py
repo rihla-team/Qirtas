@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTabWidget, 
                            QWidget, QLabel, QCheckBox, QComboBox, QSpinBox,
-                           QPushButton, QGroupBox, QMessageBox, QProgressDialog,
+                           QPushButton, QGroupBox, QMessageBox,
                            QTextEdit)
 from PyQt5.QtCore import Qt
 

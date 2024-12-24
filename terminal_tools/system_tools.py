@@ -13,7 +13,6 @@ import socket
 import getpass
 import subprocess
 from colorama import init, Fore, Back, Style, AnsiToWin32
-import colorama
 
 init(strip=True, convert=True)  # تهيئة colorama مع إزالة الرموز غير المرغوبة
 

@@ -1,6 +1,5 @@
 from .base_tool import TerminalTool
 import pint
-from forex_python.bitcoin import BtcConverter
 from forex_python.converter import CurrencyRates, RatesNotAvailableError
 import requests.exceptions
 import json

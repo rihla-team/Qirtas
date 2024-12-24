@@ -1,12 +1,9 @@
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QIcon, QPixmap, QImage
 import json
 import os
 import shutil
 from pathlib import Path
-import uuid
 import semver #pip install semver
+from PyQt5.QtWidgets import QDialog, QVBoxLayout, QGroupBox, QFormLayout, QLineEdit, QTextEdit, QComboBox, QPushButton, QLabel, QHBoxLayout, QCheckBox, QGridLayout, QMessageBox
 
 class ExtensionCreator(QDialog):
     def __init__(self, parent=None):
