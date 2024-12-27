@@ -2165,44 +2165,57 @@ class ExtensionManagerDialog(QMainWindow):
                 progress.setCancelButton(None)
                 progress.setValue(20)
             
-            # جلب محتويات الإضافة
-            progress.setLabelText("جار تنزيل ملفات الإضافة...")
-            api_url = f"{self.store.base_url}/contents/store/extensions/{ext_id}"
-            try:
-                response = requests.get(api_url, headers=headers)
-                response.raise_for_status()
-                contents = response.json()
-            except requests.exceptions.RequestException as e:
-                if response.status_code == 403:
-                    raise Exception("خطأ في الوصول: تأكد من صلاحية توكن GitHub")
-                elif response.status_code == 404:
-                    raise Exception("لم يتم العثور على مجلد الإضافة")
-                else:
-                    raise Exception(f"خطأ في جلب محتويات الإضافة: {str(e)}")
-            
             # إنشاء مجلد الإضافة
             extensions_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'extensions')
             ext_dir = os.path.join(extensions_dir, ext_id)
             os.makedirs(ext_dir, exist_ok=True)
-            
-            # تنزيل الملفات
-            total_files = len([item for item in contents if item['type'] == 'file'])
-            for i, item in enumerate(contents):
-                if item['type'] == 'file':
-                    progress_value = 30 + (60 * i // total_files)
-                    progress.setValue(progress_value)
-                    progress.setLabelText(f"جار تنزيل: {item['name']}")
+
+            def download_contents(path, local_path):
+                ignored_paths = {
+                    '__pycache__',
+                    '.git',
+                    '.gitignore',
+                    '.DS_Store',
+                    'Thumbs.db'
+                }
+                
+                try:
+                    # تنظيف المسار من الشرطات المزدوجة
+                    clean_path = path.strip('/')
+                    api_url = f"{self.store.base_url}/contents/store/extensions/{ext_id}"
+                    if clean_path:
+                        api_url = f"{api_url}/{clean_path}"
                     
-                    try:
-                        file_url = f"{self.store.raw_base_url}/store/extensions/{ext_id}/{item['name']}"
-                        file_response = requests.get(file_url, headers=headers)
-                        file_response.raise_for_status()
-                        
-                        file_path = os.path.join(ext_dir, item['name'])
-                        with open(file_path, 'wb') as f:
-                            f.write(file_response.content)
-                    except requests.exceptions.RequestException as e:
-                        raise Exception(f"فشل في تنزيل الملف {item['name']}: {str(e)}")
+                    response = requests.get(api_url, headers=headers)
+                    response.raise_for_status()
+                    contents = response.json()
+                    
+                    for item in contents:
+                        if item['name'] in ignored_paths:
+                            continue
+                            
+                        item_path = os.path.join(local_path, item['name'])
+                        if item['type'] == 'dir':
+                            os.makedirs(item_path, exist_ok=True)
+                            # تمرير المسار المنظف
+                            new_path = f"{clean_path}/{item['name']}" if clean_path else item['name']
+                            download_contents(new_path, item_path)
+                        else:
+                            download_url = item['download_url']
+                            file_response = requests.get(download_url, headers=headers)
+                            file_response.raise_for_status()
+                            with open(item_path, 'wb') as f:
+                                f.write(file_response.content)
+                except requests.exceptions.HTTPError as e:
+                    if e.response.status_code == 404:
+                        self.logger.warning(f"لم يتم العثور على المسار: {api_url}")
+                        # لا نريد إيقاف عملية التثبيت بسبب مجلد مفقود
+                        pass
+                    else:
+                        raise e
+
+            # تنزيل كل المحتويات بما فيها المجلدات الفرعية
+            download_contents('', ext_dir)
             
             # إكمال التثبيت
             progress.setValue(90)
