@@ -1,0 +1,224 @@
+{
+    "python": [
+        "^\\s*def\\s+\\w+\\s*\\(",
+        "^\\s*class\\s+\\w+\\s*[:\\(]",
+        "^\\s*import\\s+\\w+",
+        "^\\s*from\\s+\\w+\\s+import",
+        "^\\s*@\\w+"
+    ],
+    "javascript": [
+        "^\\s*function\\s+\\w+\\s*\\(",
+        "^\\s*const\\s+\\w+\\s*=",
+        "^\\s*let\\s+\\w+\\s*=",
+        "^\\s*var\\s+\\w+\\s*=",
+        "^\\s*import\\s+.*from\\s+[\\\"']",
+        "^\\s*export\\s+"
+    ],
+    "html": [
+        "<!DOCTYPE\\s+html",
+        "<html",
+        "<head",
+        "<body",
+        "<script",
+        "<style"
+    ],
+    "css": [
+        "^\\s*[\\.\\#]?\\w+\\s*{",
+        "^\\s*@media\\s+",
+        "^\\s*@import\\s+",
+        "^\\s*@keyframes\\s+"
+    ],
+    "java": [
+        "^\\s*public\\s+class\\s+",
+        "^\\s*private\\s+class\\s+",
+        "^\\s*protected\\s+class\\s+",
+        "^\\s*package\\s+\\w+",
+        "^\\s*import\\s+\\w+\\."
+    ],
+    "cpp": [
+        "^\\s*#include\\s+[<\"]",
+        "^\\s*using\\s+namespace\\s+",
+        "^\\s*class\\s+\\w+\\s*{",
+        "^\\s*template\\s*<"
+    ],
+    "php": [
+        "<\\?php",
+        "^\\s*namespace\\s+",
+        "^\\s*use\\s+",
+        "^\\s*class\\s+\\w+",
+        "^\\s*function\\s+\\w+\\s*\\("
+    ],
+    "sql": [
+        "^\\s*SELECT\\s+",
+        "^\\s*INSERT\\s+INTO",
+        "^\\s*UPDATE\\s+",
+        "^\\s*DELETE\\s+FROM",
+        "^\\s*CREATE\\s+TABLE"
+    ],
+    "markdown": [
+        "^#\\s+",
+        "^\\*\\*.*\\*\\*",
+        "^-\\s+",
+        "^\\d+\\.\\s+",
+        "^\\[.*\\]\\(.*\\)"
+    ],
+    "json": [
+        "^\\s*{\\s*$",
+        "^\\s*\"[^\"]+\"\\s*:",
+        "^\\s*\\[\\s*$"
+    ],
+    "yaml": [
+        "^\\s*[\\w-]+:\\s*$",
+        "^\\s*-\\s+\\w+:",
+        "^\\s*\\w+:\\s*[|>]"
+    ],
+    "xml": [
+        "^\\s*<\\?xml",
+        "^\\s*<\\w+.*>",
+        "^\\s*</\\w+>"
+    ],
+    "bash": [
+        "^#!/bin/bash",
+        "^#!/usr/bin/env\\s+bash",
+        "^\\s*function\\s+\\w+\\s*\\(\\)",
+        "^\\s*if\\s+\\[\\["
+    ],
+    "powershell": [
+        "^#!/usr/bin/env\\s+pwsh",
+        "^\\s*function\\s+\\w+-\\w+",
+        "^\\s*\\$\\w+\\s*="
+    ],
+    "rust": [
+        "^\\s*fn\\s+\\w+\\s*\\(",
+        "^\\s*pub\\s+fn",
+        "^\\s*impl\\s+",
+        "^\\s*use\\s+\\w+",
+        "^\\s*mod\\s+\\w+"
+    ],
+    "go": [
+        "^\\s*func\\s+\\w+\\s*\\(",
+        "^\\s*package\\s+\\w+",
+        "^\\s*import\\s+\\(",
+        "^\\s*type\\s+\\w+\\s+struct",
+        "^\\s*var\\s+\\w+"
+    ],
+    "typescript": [
+        "^\\s*interface\\s+\\w+",
+        "^\\s*type\\s+\\w+\\s*=",
+        "^\\s*class\\s+\\w+",
+        "^\\s*enum\\s+\\w+",
+        "^\\s*export\\s+"
+    ],
+    "kotlin": [
+        "^\\s*fun\\s+\\w+\\s*\\(",
+        "^\\s*class\\s+\\w+",
+        "^\\s*data\\s+class",
+        "^\\s*package\\s+\\w+",
+        "^\\s*import\\s+\\w+"
+    ],
+    "swift": [
+        "^\\s*func\\s+\\w+\\s*\\(",
+        "^\\s*class\\s+\\w+",
+        "^\\s*struct\\s+\\w+",
+        "^\\s*import\\s+\\w+",
+        "^\\s*protocol\\s+\\w+"
+    ],
+    "ruby": [
+        "^\\s*def\\s+\\w+",
+        "^\\s*class\\s+\\w+",
+        "^\\s*module\\s+\\w+",
+        "^\\s*require\\s+['\"]",
+        "^\\s*attr_"
+    ],
+    "scala": [
+        "^\\s*def\\s+\\w+\\s*\\(",
+        "^\\s*class\\s+\\w+",
+        "^\\s*object\\s+\\w+",
+        "^\\s*trait\\s+\\w+",
+        "^\\s*import\\s+\\w+"
+    ],
+    "r": [
+        "^\\s*function\\s*\\(",
+        "^\\s*library\\s*\\(",
+        "^\\s*source\\s*\\(",
+        "^\\s*\\w+\\s*<-\\s*function",
+        "^\\s*if\\s*\\("
+    ],
+    "dart": [
+        "^\\s*void\\s+main\\s*\\(",
+        "^\\s*class\\s+\\w+",
+        "^\\s*import\\s+'package:",
+        "^\\s*@\\w+",
+        "^\\s*Widget\\s+build"
+    ],
+    "lua": [
+        "^\\s*function\\s+\\w+\\s*\\(",
+        "^\\s*local\\s+function",
+        "^\\s*require\\s*\\(",
+        "^\\s*if\\s+\\w+\\s+then",
+        "^\\s*while\\s+\\w+\\s+do"
+    ],
+    "perl": [
+        "^\\s*sub\\s+\\w+\\s*{",
+        "^\\s*package\\s+\\w+",
+        "^\\s*use\\s+\\w+",
+        "^\\s*my\\s+\\$\\w+",
+        "^\\s*our\\s+\\$\\w+"
+    ],
+    "haskell": [
+        "^\\s*module\\s+\\w+",
+        "^\\s*import\\s+\\w+",
+        "^\\s*data\\s+\\w+",
+        "^\\s*type\\s+\\w+",
+        "^\\s*\\w+\\s*::"
+    ],
+    "c": [
+        "^\\s*#include\\s+[<\"]",
+        "^\\s*int\\s+main\\s*\\(",
+        "^\\s*void\\s+\\w+\\s*\\(",
+        "^\\s*struct\\s+\\w+\\s*{",
+        "^\\s*typedef\\s+"
+    ],
+    "csharp": [
+        "^\\s*namespace\\s+\\w+",
+        "^\\s*using\\s+\\w+",
+        "^\\s*public\\s+class\\s+",
+        "^\\s*private\\s+\\w+\\s+\\w+\\s*\\(",
+        "^\\s*protected\\s+override"
+    ],
+    "groovy": [
+        "^\\s*def\\s+\\w+\\s*\\(",
+        "^\\s*class\\s+\\w+",
+        "^\\s*import\\s+\\w+",
+        "^\\s*@\\w+",
+        "^\\s*package\\s+\\w+"
+    ],
+    "julia": [
+        "^\\s*function\\s+\\w+\\s*\\(",
+        "^\\s*struct\\s+\\w+",
+        "^\\s*module\\s+\\w+",
+        "^\\s*using\\s+\\w+",
+        "^\\s*import\\s+\\w+"
+    ],
+    "elixir": [
+        "^\\s*defmodule\\s+\\w+",
+        "^\\s*def\\s+\\w+",
+        "^\\s*defp\\s+\\w+",
+        "^\\s*alias\\s+\\w+",
+        "^\\s*import\\s+\\w+"
+    ],
+    "clojure": [
+        "^\\s*\\(defn\\s+\\w+",
+        "^\\s*\\(ns\\s+\\w+",
+        "^\\s*\\(def\\s+\\w+",
+        "^\\s*\\(defrecord\\s+\\w+",
+        "^\\s*\\(require\\s+"
+    ],
+    "assembly": [
+        "^\\s*section\\s+\\.\\w+",
+        "^\\s*global\\s+\\w+",
+        "^\\s*extern\\s+\\w+",
+        "^\\s*\\w+:\\s*$",
+        "^\\s*mov\\s+"
+    ]
+} 

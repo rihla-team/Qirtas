@@ -1,0 +1,330 @@
+{
+    "metadata": {
+        "version": "1.0",
+        "last_updated": "11/28/2024",
+        "language": ["ar", "en"],
+        "author": " فريق رحلة",
+        "description": "قائمة بأوامر النظام المتاحة"
+    },
+    "ls": {
+        "windows": "dir",
+        "linux": "ls",
+        "description": "عرض محتويات المجلد",
+        "arabic": ["عرض", "قائمة"],
+        "category": "إدارة الملفات",
+        "support_files_or_folders_nor": "files_or_folders"
+    },
+    "clear": {
+        "windows": "cls",
+        "linux": "clear",
+        "description": "مسح الشاشة",
+        "arabic": ["مسح", "تنظيف"],
+        "category": "عمليات النظام",
+        "support_files_or_folders_nor": "none"
+    },
+    "pwd": {
+        "windows": "cd",
+        "linux": "pwd",
+        "description": "عرض المسار الحالي",
+        "arabic": ["مسار", "اين"],
+        "category": "إدارة الملفات",
+        "support_files_or_folders_nor": "none"
+    },
+    "cat": {
+        "windows": "type",
+        "linux": "cat",
+        "description": "عرض محتوى الملف",
+        "arabic": ["اقرأ", "فتح", "محتوى"],
+        "category": "إدارة الملفات",
+        "support_files_or_folders_nor": "files"
+    },
+    "rm": {
+        "windows": "del",
+        "linux": "rm",
+        "description": "حذف ملف",
+        "arabic": ["حذف", "احذف", "امسح"],
+        "category": "إدارة الملفات",
+        "support_files_or_folders_nor": "files"
+    },
+    "mkdir": {
+        "windows": "mkdir",
+        "linux": "mkdir",
+        "description": "إنشاء مجلد",
+        "arabic": ["مجلد", "انشئ"],
+        "category": "إدارة الملفات",
+        "support_files_or_folders_nor": "none"
+    },
+    "rmdir": {
+        "windows": "rmdir",
+        "linux": "rmdir",
+        "description": "حذف مجلد",
+        "arabic": ["حذف_مجلد", "امسح_مجلد"],
+        "category": "إدارة الملفات",
+        "support_files_or_folders_nor": "folders"
+    },
+    "grep": {
+        "windows": "findstr",
+        "linux": "grep",
+        "description": "البحث في النص",
+        "arabic": ["بحث", "ابحث", "جد"],
+        "category": "البحث والتصفية",
+        "support_files_or_folders_nor": "none"
+    },
+    "cd": {
+        "windows": "cd",
+        "linux": "cd",
+        "description": "تغيير المجلد",
+        "arabic": ["انتقل", "اذهب"],
+        "category": "إدارة الملفات",
+        "support_files_or_folders_nor": "folders"
+    },
+    "echo": {
+        "windows": "echo",
+        "linux": "echo",
+        "description": "طباعة نص",
+        "arabic": ["اطبع", "اكتب", "صدى","طباعة"],
+        "category": "عمليات النظام",
+        "support_files_or_folders_nor": "none"
+    },
+    "date": {
+        "windows": "date",
+        "linux": "date",
+        "description": "عرض التاريخ",
+        "arabic": ["وقت","الوقت","التاريخ"],
+        "category": "عمليات النظام",
+        "support_files_or_folders_nor": "none"
+    },
+    "help": {
+        "windows": "help",
+        "linux": "help",
+        "description": "عرض قائمة الأوامر المتاحة",
+        "arabic": ["اوامر", "أوامر", "مساعدة", "تعليمات","الاوامر"],
+        "category": "عمليات النظام",
+        "support_files_or_folders_nor": "none"
+    },
+    "exit": {
+        "windows": "exit",
+        "linux": "exit",
+        "description": "إغلاق البرنامج",
+        "arabic": ["خروج", "اغلاق"],
+        "category": "عمليات النظام",
+        "support_files_or_folders_nor": "none"
+    },
+    "cacls": {
+        "windows": "cacls",
+        "linux": "cacls",
+        "description": "عرض صلاحيات الملفات",
+        "arabic": ["صلاحيات"],
+        "category": "إدارة الملفات",
+        "support_files_or_folders_nor": "files"
+    },
+    "chglogon": {
+        "windows": "chglogon",
+        "linux": "chglogon",
+        "description": "تغيير حساب الدخول",
+        "arabic": ["تغيير", "حساب", "دخول"],
+        "category": "عمليات النظام",
+        "support_files_or_folders_nor": "none"
+    },
+    "chkdsk": {
+        "windows": "chkdsk",
+        "linux": "chkdsk",
+        "description": "فحص الأقراص",
+        "arabic": ["فحص", "فحص_الأقراص","فحص_الاقراص"],
+        "category": "عمليات النظام",
+        "support_files_or_folders_nor": "none"
+    },
+    "color": {
+        "windows": "color",
+        "linux": "color",
+        "description": "تغيير لون الشاشة",
+        "arabic": ["لون", "تغيير_لون"],
+        "category": "عمليات النظام",
+        "support_files_or_folders_nor": "none"
+    },
+    "find": {
+        "windows": "find",
+        "linux": "find",
+        "description": "البحث عن ملفات",
+        "arabic": ["جد_ملف", "ابحث_عن_ملف"],
+        "category": "البحث والتصفية",
+        "support_files_or_folders_nor": "files"
+    },
+    "chmod": {
+        "windows": "icacls",
+        "linux": "chmod",
+        "description": "تغيير صلاحيات الملفات",
+        "arabic": ["صلاحيات_ملف", "تصريح"],
+        "category": "إدارة الملفات",
+        "support_files_or_folders_nor": "files"
+    },
+    "ps": {
+        "windows": "tasklist",
+        "linux": "ps",
+        "description": "عرض العمليات الجارية",
+        "arabic": ["عمليات", "برامج"],
+        "category": "عمليات النظام",
+        "support_files_or_folders_nor": "none"
+    },
+    "kill": {
+        "windows": "taskkill",
+        "linux": "kill",
+        "description": "إنهاء عملية",
+        "arabic": ["انهي", "اقتل", "اغلق_برنامج"],
+        "category": "عمليات النظام",
+        "support_files_or_folders_nor": "none"
+    },
+    "df": {
+        "windows": "wmic logicaldisk get size,freespace,caption",
+        "linux": "df",
+        "description": "عرض مساحة القرص",
+        "arabic": ["قرص", "مساحة", "تخزين"],
+        "category": "عمليات النظام",
+        "support_files_or_folders_nor": "none"
+    },
+    "whoami": {
+        "windows": "whoami",
+        "linux": "whoami",
+        "description": "عرض اسم المستخدم الحالي",
+        "arabic": ["من_انا", "مستخدم"],
+        "category": "عمليات النظام",
+        "support_files_or_folders_nor": "none"
+    },
+    "history": {
+        "windows": "doskey /history",
+        "linux": "history",
+        "description": "عرض تاريخ الأوامر",
+        "arabic": ["سجل", "تاريخ", "تاريخ_الاوامر"],
+        "category": "عمليات النظام",
+        "support_files_or_folders_nor": "none",
+        "internal_command": true
+    },
+    "touch": {
+        "windows": "type nul >",
+        "linux": "touch",
+        "description": "إنشاء ملف فارغ",
+        "arabic": ["انشئ_ملف", "ملف_جديد"],
+        "category": "إدارة الملفات",
+        "support_files_or_folders_nor": "none"
+    },
+    "wget": {
+        "windows": "curl",
+        "linux": "wget",
+        "description": "تحميل ملف من الإنترنت",
+        "arabic": ["تحميل", "نزل"],
+        "category": "الشبكة",
+        "support_files_or_folders_nor": "none"
+    },
+    "ping": {
+        "windows": "ping",
+        "linux": "ping",
+        "description": "اختبار الاتصال بالشبكة",
+        "arabic": ["اختبار_شبكة", "فحص_اتصال", "بينغ"],
+        "category": "الشبكة",
+        "support_files_or_folders_nor": "none"
+    },
+    "ifconfig": {
+        "windows": "ipconfig",
+        "linux": "ifconfig",
+        "description": "عرض إعدادات الشبكة",
+        "arabic": ["شبكة", "اعدادات_شبكة"],
+        "category": "الشبكة",
+        "support_files_or_folders_nor": "none"
+    },
+    "zip": {
+        "windows": "compact",
+        "linux": "zip",
+        "description": "ضغط ملفات",
+        "arabic": ["ضغط", "اضغط"],
+        "category": "إدارة الملفات",
+        "support_files_or_folders_nor": "files"
+    },
+    "unzip": {
+        "windows": "expand",
+        "linux": "unzip",
+        "description": "فك ضغط ملفات",
+        "arabic": ["فك_ضغط", "استخرج"],
+        "category": "إدارة الملفات",
+        "support_files_or_folders_nor": "files"
+    },
+    "top": {
+        "windows": "typeperf",
+        "linux": "top",
+        "description": "مراقبة أداء النظام",
+        "arabic": ["اداء", "مراقبة"],
+        "category": "عمليات النظام",
+        "support_files_or_folders_nor": "none"
+    },
+    "free": {
+        "windows": "systeminfo | find \"Memory\"",
+        "linux": "free",
+        "description": "عرض حالة الذاكرة",
+        "arabic": ["ذاكرة", "رام"],
+        "category": "عمليات النظام",
+        "support_files_or_folders_nor": "none"
+    },
+    "locate": {
+        "windows": "where",
+        "linux": "locate",
+        "description": "البحث السريع عن ملف",
+        "arabic": ["مكان_ملف", "اين_ملف"],
+        "category": "البحث والتصفية",
+        "support_files_or_folders_nor": "none"
+    },
+    "run": {
+        "windows": "start",
+        "linux": "run",
+        "description": "تشغيل برنامج",
+        "arabic": ["تشغيل", "افتح", "نفذ", "شغل"],
+        "category": "عمليات النظام",
+        "support_files_or_folders_nor": "none"
+    },
+    "نسخ_ملف": {
+        "windows": "copy",
+        "linux": "cp",
+        "description": "نسخ ملف أو مجلد إلى وجهة محددة",
+        "arabic": ["نسخ", "انسخ", "نسخ_ملف"],
+        "category": "إدارة الملفات",
+        "support_files_or_folders_nor": "files_or_folders",
+        "internal_command": true,
+        "tool": "FileCopy"
+    },
+    "نقل_ملف": {
+        "windows": "move",
+        "linux": "mv",
+        "description": "نقل ملف أو مجلد إلى وجهة محددة",
+        "arabic": ["نقل", "انقل", "نقل_ملف", "حرك"],
+        "category": "إدارة الملفات",
+        "support_files_or_folders_nor": "files_or_folders",
+        "internal_command": true,
+        "tool": "FileMove"
+    },
+    "معلومات_نظام": {
+        "windows": "systeminfo",
+        "linux": "uname -a",
+        "description": "عرض معلومات تفصيلية عن النظام",
+        "arabic": ["معلومات", "معلومات_نظام", "نظام"],
+        "category": "عمليات النظام",
+        "support_files_or_folders_nor": "none",
+        "internal_command": true,
+        "tool": "SystemInfo"
+    },
+    "فحص_الشبكة": {
+        "windows": "ping",
+        "linux": "ping",
+        "description": "فحص جودة الشبكة مثل السرعة ومعلومات الاتصال",
+        "arabic": ["فحص_شبكة", "فحص_جودة_الشبكة", "فحص_الشبكة"],
+        "category": "الشبكة",
+        "support_files_or_folders_nor": "none",
+        "tool": "NetworkQualityChecker"
+    },
+    "تحويل_الوحدات": {
+        "windows": "تحويل_الوحدات",
+        "linux": "تحويل_الوحدات",
+        "description": "تحويل الوحدات",
+        "arabic": ["تحويل", "تحويل_وحدة"],
+        "category": "التحويلات",
+        "support_files_or_folders_nor": "none",
+        "tool": "UnitConverter"
+    }
+}

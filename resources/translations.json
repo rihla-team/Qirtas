@@ -1,0 +1,52 @@
+{
+    "log_levels": {
+        "DEBUG": "تصحيح",
+        "INFO": "معلومات",
+        "WARNING": "تحذير",
+        "ERROR": "خطأ",
+        "CRITICAL": "حرج"
+    },
+    "loggers": {
+        "ExtensionsManager": "مدير الإضافات",
+        "UpdateManager": "مدير التحديثات",
+        "git.cmd": "أمر جيت",
+        "urllib3.connectionpool": "مجمع اتصالات مكتبة الروابط الشبكية 3",
+        "ArabicTerminal": "مدير الإضافات",
+        "update_manager": "مدير التحديثات",
+        "terminal_widget": "مدير الإضافات",
+        "utils.update_manager": "مدير التحديثات",
+        "utils.extension_store": "متجر الإضافات",
+        "editor.search_dialog": "محرر النصوص - وحدة البحث والاستبدال",
+        "editor.search_dialog.search_dialog": "نافذة البحث",
+        "editor.search_dialog.replace_dialog": "نافذة الاستبدال",
+        "editor.settings_dialog": "نافذة الإعدادات",
+        "ExtensionsManager - INFO": "مدير الإضافات",
+        "utils.sidebar_manager": "مدير الشريط الجانبي",
+        "editor.settings_manager": "مدير الإعدادات",
+        "__main__": "البرنامج",
+        "editor.tab_manager": "مدير التبويبات",
+        "utils.statistics_manager": "مدير الإحصائيات",
+        "editor.text_widget": "محرر النصوص",
+        "editor.text_widget.text_widget": "محرر النصوص"
+    },
+    "common_messages": {
+        "Starting new HTTPS connection": "بدء اتصال بروتوكول النص التشعبي الآمن جديد",
+        "Starting new HTTPS connection (1)": "بدء اتصال بروتوكول النص التشعبي الآمن جديد (1)",
+        "GET": "طلب استعلام",
+        "Extension loaded": "تم تحميل الإضافة",
+        "Extension activated": "تم تفعيل الإضافة",
+        "Extension deactivated": "تم تعطيل الإضافة",
+        "Loading style file": "تم تحميل ملف التنسيق",
+        "Popen": "تشغيل عملية",
+        "git version": "إصدار جيت",
+        "universal_newlines": "أسطر جديدة عالمية",
+        "shell": "صدفة",
+        "istream": "مجرى الإدخال",
+        "cwd": "مجلد العمل الحالي"
+    },
+    "extension_store_messages": {
+        "Using proactor": "استخدام المعالج",
+        "IocpProactor": "معالج النظام",
+        "asyncio": "المزامنة التلقائية"
+    }
+} 

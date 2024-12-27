@@ -1,0 +1,37 @@
+{
+    "app_version": "1.0.1",
+    "updates": {
+        "auto_check": true,
+        "check_interval": "يومياً",
+        "last_check": 1735138868.248522
+    },
+    "editor": {
+        "auto_save": {
+            "enabled": true,
+            "interval": 30
+        },
+        "theme": "dark",
+        "word_wrap": true
+    },
+    "font": {
+        "family": "Arial",
+        "size": 12,
+        "bold": false,
+        "italic": false,
+        "underline": false
+    },
+    "extensions": {
+        "auto_update": true,
+        "update_interval": "يومياً",
+        "update_time": "00:00",
+        "github_token": "",
+        "enabled": {},
+        "disabled": []
+    },
+    "tabs": {
+        "movable": true,
+        "scroll_buttons": true,
+        "elide_mode": "none",
+        "max_closed_tabs": 10
+    }
+}
