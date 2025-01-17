@@ -66,15 +66,19 @@ class ExtensionStore:
         }.get(system, 'unknown')
 
     def get_app_version(self):
-        """الحصول على إصدار التطبيق"""
+        """الحصول على إصدار التطبيق من ملف الإعدادات"""
         try:
             settings_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'settings.json')
             if os.path.exists(settings_path):
                 with open(settings_path, 'r', encoding='utf-8') as f:
                     settings = json.load(f)
-                    return settings.get('app_version', '1.0.0')
-        except Exception:
-            pass
+                    version = settings.get('app_version', '1.0.0')
+                    if not version:  # إذا كان الإصدار فارغاً
+                        logger.warning("لم يتم العثور على إصدار في ملف الإعدادات")
+                        return '1.0.0'
+                    return version
+        except Exception as e:
+            logger.error(f"خطأ في قراءة الإصدار من ملف الإعدادات: {str(e)}")
         return '1.0.0'
 
     async def _fetch_icon(self, session, ext_name):
@@ -238,28 +242,28 @@ class ExtensionStore:
         return compatible
 
     def load_token(self):
-        """تحميل الرمز من ملف الإعدادات"""
+        """تحميل توكن GitHub من الإعدادات"""
         try:
             settings_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'settings.json')
             if os.path.exists(settings_path):
                 with open(settings_path, 'r', encoding='utf-8') as f:
                     settings = json.load(f)
-                    return settings.get('github_token')
+                    token = settings.get('extensions', {}).get('github_token', '')
+                    if not token:
+                        logger.warning("لم يتم العثور على توكن جيت هاب في الإعدادات")
+                    return token
         except Exception as e:
-            print(f"خطأ في تحميل الرمز: {str(e)}")
-        return None
+            logger.error(f"خطأ في تحميل توكن جيت هاب: {str(e)}")
+        return ''
 
     def create_headers(self):
-        """إنشاء هيدرز الطلبات مع ال��مز"""
+        """إنشاء ترويسات الطلبات"""
         headers = {
             'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': 'Qirtas-Extension-Store'
+            'User-Agent': f'Qirtas-Editor/{self.app_version}'
         }
         if self.token:
             headers['Authorization'] = f'token {self.token}'
-            print("تم تطبيق الرمز بنجاح")
-        else:
-            print("لم يتم العثور على توكن")
         return headers
 
     def update_token(self, token):

@@ -13,24 +13,69 @@ class UpdateManager(QObject):
     update_progress = pyqtSignal(int)   # إشارة لتحديث شريط التقدم
     
     def __init__(self):
-        super().__init__()
-        self.settings_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'settings.json')
-        self.current_version = self._get_current_version()
-        self.github_repo = "rihla-team/Qirtas"  # تحديث المستودع الصحيح
-        self.github_api_url = f"https://api.github.com/repos/{self.github_repo}/releases/latest"
-        self.user_agent = f"Qirtas-Editor/{self.current_version}"
-        self.logger = logging.getLogger(__name__)
+        try:
+            super().__init__()
+            self.logger = logging.getLogger(__name__)
+            self.settings_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'settings.json')
+            self.current_version = self._get_current_version()
+            self.github_repo = "rihla-team/Qirtas"  # تحديث المستودع الصحيح
+            self.github_api_url = f"https://api.github.com/repos/{self.github_repo}/releases/latest"
+            self.user_agent = f"Qirtas-Editor/{self.current_version}"
+        except Exception as e:
+            self.logger.error(f"خطأ في تهيئة مدير التحديثات: {str(e)}")
+            raise
         
-    def _get_current_version(self):
-        """الحصول على الإصدار الحالي من ملف الإعدادات"""
+    def _get_app_version_from_main(self):
+        """الحصول على الإصدار من ملف main.py"""
+        try:
+            main_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'main.py')
+            if os.path.exists(main_path):
+                with open(main_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    # البحث عن متغير الإصدار
+                    import re
+                    match = re.search(r'app_version\s*=\s*["\']([^"\']+)["\']', content)
+                    if match:
+                        return match.group(1)
+            return '1.0.0'
+        except Exception as e:
+            self.logger.error(f"خطأ في قراءة الإصدار من main.py: {str(e)}")
+            return '1.0.0'
+
+    def _update_settings_version(self, version):
+        """تحديث الإصدار في ملف الإعدادات"""
         try:
             if os.path.exists(self.settings_path):
                 with open(self.settings_path, 'r', encoding='utf-8') as f:
                     settings = json.load(f)
-                    return settings.get('app_version', '1.0.0')
+                
+                # تحديث الإصدار
+                settings['app_version'] = version
+                
+                # حفظ التغييرات
+                with open(self.settings_path, 'w', encoding='utf-8') as f:
+                    json.dump(settings, f, indent=4, ensure_ascii=False)
+                
+                self.logger.info(f"تم تحديث الإصدار في ملف الإعدادات إلى {version}")
+                return True
         except Exception as e:
-            log_in_arabic(self.logger, logging.ERROR, f"خطأ في قراءة الإصدار الحالي: {str(e)}")
-        return '1.0.0'
+            self.logger.error(f"خطأ في تحديث الإصدار في ملف الإعدادات: {str(e)}")
+        return False
+
+    def _get_current_version(self):
+        """الحصول على الإصدار الحالي من main.py وتحديث ملف الإعدادات"""
+        try:
+            # الحصول على الإصدار من main.py
+            main_version = self._get_app_version_from_main()
+            
+            # تحديث الإصدار في ملف الإعدادات
+            self._update_settings_version(main_version)
+            
+            return main_version
+            
+        except Exception as e:
+            self.logger.error(f"خطأ في قراءة الإصدار الحالي: {str(e)}")
+            return '1.0.0'
     
     def check_for_updates(self):
         """التحقق من وجود تحديثات جديدة"""
@@ -92,19 +137,53 @@ class UpdateManager(QObject):
     def _compare_versions(self, version1, version2):
         """مقارنة الإصدارات"""
         try:
-            v1_parts = [int(x) for x in version1.split('.')]
-            v2_parts = [int(x) for x in version2.split('.')]
+            # التحقق من القيم الفارغة أو غير الصالحة
+            if not version1 or not version2 or not isinstance(version1, str) or not isinstance(version2, str):
+                self.logger.error(f"إصدار غير صالح: version1='{version1}', version2='{version2}'")
+                return 0
             
-            for i in range(max(len(v1_parts), len(v2_parts))):
-                v1 = v1_parts[i] if i < len(v1_parts) else 0
-                v2 = v2_parts[i] if i < len(v2_parts) else 0
-                if v1 > v2:
-                    return 1
-                elif v1 < v2:
+            # تنظيف الإصدارات من أي أحرف غير مطلوبة
+            version1 = version1.strip().strip('v').strip('.')
+            version2 = version2.strip().strip('v').strip('.')
+            
+            # التحقق من صحة تنسيق الإصدار
+            if not version1 or not version2:
+                self.logger.error(f"إصدار فارغ بعد التنظيف: version1='{version1}', version2='{version2}'")
+                return 0
+            
+            # تقسيم الإصدارات إلى أجزاء وإزالة الأجزاء الفارغة
+            v1_parts = [part for part in version1.split('.') if part]
+            v2_parts = [part for part in version2.split('.') if part]
+            
+            # التحقق من عدد الأجزاء
+            if len(v1_parts) == 0 or len(v2_parts) == 0:
+                self.logger.error(f"عدد أجزاء الإصدار غير صحيح: version1={v1_parts}, version2={v2_parts}")
+                return 0
+            
+            # إكمال الأجزاء الناقصة بأصفار
+            while len(v1_parts) < 3:
+                v1_parts.append('0')
+            while len(v2_parts) < 3:
+                v2_parts.append('0')
+            
+            # التحقق من أن كل جزء رقم صحيح
+            try:
+                v1_parts = [int(x) for x in v1_parts[:3]]  # نأخذ أول 3 أجزاء فقط
+                v2_parts = [int(x) for x in v2_parts[:3]]
+            except ValueError as e:
+                self.logger.error(f"خطأ في تحويل الإصدار إلى أرقام: {str(e)}")
+                return 0
+            
+            # مقارنة الأجزاء
+            for i in range(3):
+                if v1_parts[i] < v2_parts[i]:
                     return -1
+                elif v1_parts[i] > v2_parts[i]:
+                    return 1
             return 0
-        except ValueError:
-            print("خطأ في تنسيق الإصدار")
+            
+        except Exception as e:
+            self.logger.error(f"خطأ في مقارنة الإصدارات: {str(e)}")
             return 0
     
     def download_update(self, url, destination):

@@ -1,5 +1,4 @@
 # main.py
-
 try:
     import sys
     import os
@@ -21,7 +20,7 @@ logger = logging.getLogger(__name__)
 def main():
     try:
         app = QApplication(sys.argv)
-        app_version = "1.0.1"
+        app_version = "1.0.0"
 
         # تحميل التنسيق
         try:

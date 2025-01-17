@@ -47,7 +47,15 @@ class SettingsManager:
             if not self.settings_file.exists() or self.settings_file.stat().st_size == 0:
                 self.logger.info("إنشاء ملف إعدادات جديد")
                 self._save_settings_to_file(self.create_default_settings())
-            self._settings_cache = self.load_settings()
+            
+            # تحميل الإعدادات وتحديث الإصدار
+            current_settings = self.load_settings()
+            if current_settings.get('app_version') != self.app_version:
+                self.logger.info(f"تحديث الإصدار من {current_settings.get('app_version')} إلى {self.app_version}")
+                current_settings['app_version'] = self.app_version
+                self._save_settings_to_file(current_settings)
+            
+            self._settings_cache = current_settings
             self.logger.info("تم تهيئة الإعدادات بنجاح")
         except Exception as e:
             self.logger.error(f"خطأ في تهيئة الإعدادات: {str(e)}")
@@ -85,7 +93,7 @@ class SettingsManager:
     def _get_app_version(self) -> str:
         """الحصول على إصدار التطبيق"""
         try:
-            main_file = self.settings_file.parent.parent / 'Main.py'
+            main_file = self.settings_file.parent.parent / 'main.py'
             content = main_file.read_text(encoding='utf-8')
             if version_line := next((line for line in content.splitlines() if 'app_version' in line and '=' in line), None):
                 version = version_line.split('=')[1].strip().strip('"\'')

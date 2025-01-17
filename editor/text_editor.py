@@ -1,29 +1,32 @@
-from PyQt5.QtWidgets import (QMainWindow, QVBoxLayout, 
-                           QWidget, QFileDialog, QMessageBox, QAction,
-                           QStatusBar,QFontDialog, QTextEdit, QSplitter, QHBoxLayout, QPushButton, QLabel,QProgressDialog
-                           )  
-from PyQt5.QtGui import QTextCharFormat
-import os
-from PyQt5.QtCore import Qt, pyqtSignal, QTimer
-from .menu_bar import ArabicMenuBar
-from utils.printer import DocumentPrinter
-from utils.printer import PDFExporter
-from utils.setup_shortcuts import ShortcutManager
-from utils.text_tools import TextTools
-from utils.formatting import TextFormatter
-from .settings_manager import SettingsManager
-from .tab_manager import TabManager
-from utils.auto_save import AutoSaver
-from .text_widget import ArabicTextEdit
-from utils.statistics_manager import StatisticsManager
-from .search_dialog import SearchManager
-from .terminal_widget import  TerminalTabWidget
-from utils.extensions_manager import ExtensionsManager
-from utils.sidebar_manager import SidebarManager
-from utils.update_manager import UpdateManager
-from utils.file_watcher import FileWatcher
-import json
-
+try:
+    from PyQt5.QtWidgets import (QMainWindow, QVBoxLayout, 
+                            QWidget, QFileDialog, QMessageBox, QAction,
+                            QStatusBar,QFontDialog, QTextEdit, QSplitter, QHBoxLayout, QPushButton, QLabel,QProgressDialog
+                            )  
+    from PyQt5.QtGui import QTextCharFormat
+    import os
+    from PyQt5.QtCore import Qt, pyqtSignal, QTimer
+    from .menu_bar import ArabicMenuBar
+    from utils.printer import DocumentPrinter
+    from utils.printer import PDFExporter
+    from utils.setup_shortcuts import ShortcutManager
+    from utils.text_tools import TextTools
+    from utils.formatting import TextFormatter
+    from .settings_manager import SettingsManager
+    from .tab_manager import TabManager
+    from utils.auto_save import AutoSaver
+    from .text_widget import ArabicTextEdit
+    from utils.statistics_manager import StatisticsManager
+    from .search_dialog import SearchManager
+    from .terminal_widget import  TerminalTabWidget
+    from utils.extensions_manager import ExtensionsManager
+    from utils.sidebar_manager import SidebarManager
+    from utils.update_manager import UpdateManager
+    from utils.file_watcher import FileWatcher
+    import json
+except Exception as e:
+    print(f"خطأ في تحميل المكتبات: {e}")
+    
 class ArabicEditor(QMainWindow):
     # تعريف الإشارات في بداية الكلاس
     file_opened = pyqtSignal(str, object)
@@ -397,7 +400,7 @@ class ArabicEditor(QMainWindow):
             return False
 
     def save_file(self):
-        """فظ الملف لحالي"""
+        """حفظ الملف الحالي"""
         current_editor = self.tab_manager.get_current_editor()
         if not current_editor:
             return False
@@ -408,6 +411,10 @@ class ArabicEditor(QMainWindow):
             return self.save_file_as()
         
         try:
+            # حفظ موضع المؤشر
+            cursor = current_editor.textCursor()
+            position = cursor.position()
+            
             # الحصول على النص والإعدادات
             text = current_editor.toPlainText()
             
@@ -419,7 +426,7 @@ class ArabicEditor(QMainWindow):
             text = text.replace('\r\n', '\n')  # تحويل كل CRLF إلى LF أولاً
             text = text.replace('\r', '\n')    # تحويل كل CR إلى LF
             if line_ending != '\n':
-                text = text.replace('\n', line_ending)  # تحوي إلى نوع نهاية الأسطر المطلوب
+                text = text.replace('\n', line_ending)  # تحويل إلى نوع نهاية الأسطر المطلوب
             
             # حفظ الملف مع الترميز المحدد
             with open(file_path, 'wb') as file:
@@ -435,6 +442,13 @@ class ArabicEditor(QMainWindow):
                 ending_text = "CRLF" if line_ending == "\r\n" else "LF" if line_ending == "\n" else "CR"
                 self.statistics_manager.line_ending_label.setText(ending_text)
                 self.statistics_manager.encoding_label.setText(encoding)
+            
+            # استعادة موضع المؤشر
+            cursor.setPosition(position)
+            current_editor.setTextCursor(cursor)
+            
+            # تحديث عنوان التبويب
+            self.tab_manager.update_tab_title(current_editor)
             
             return True
             

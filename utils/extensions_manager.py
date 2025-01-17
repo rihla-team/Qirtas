@@ -79,7 +79,7 @@ class ExtensionManagerDialog(QMainWindow):
             if os.path.exists(style_path):
                 with open(style_path, 'r', encoding='utf-8') as f:
                     self.setStyleSheet(f.read())
-                    self.extensions_manager.log_messag(f"تم تحميل ملف التنسيق: {style_path}")
+                    self.extensions_manager.log_message(f"تم تحميل ملف التنسيق: {style_path}")
             else:
                 self.extensions_manager.log_message(f"ملف التنسيق غير موجود: {style_path}", "WARNING")
         except Exception as e:
@@ -1633,6 +1633,13 @@ class ExtensionManagerDialog(QMainWindow):
     def validate_token(self, token):
         """التحقق من صلاحية الرمز"""
         try:
+            # إظهار شريط التقدم
+            progress = QProgressDialog("جاري التحقق من الرمز...", None, 0, 0, self)
+            progress.setWindowTitle("التحقق من الرمز")
+            progress.setWindowModality(Qt.WindowModal)
+            progress.setCancelButton(None)
+            progress.show()
+
             headers = {
                 'Authorization': f'token {token}',
                 'Accept': 'application/vnd.github.v3+json'
@@ -1648,37 +1655,16 @@ class ExtensionManagerDialog(QMainWindow):
                 )
             return False
         except Exception as e:
-            QMessageBox.critical(self, "خطأ", 
-                f"حدث خطأ في التحقق من الرمز:\n{str(e)}"
+            QMessageBox.critical(
+                self, 
+                "خطأ", 
+                f"❌ حدث خطأ أثناء اختبار الرمز:\n{str(e)}"
             )
-            return False
+        
+        finally:
+            progress.close()
 
-    def save_token(self, token):
-        """حفظ الرمز بشكل آمن"""
-        try:
-            # التحقق من صلاحية الرمز قبل حفظه
-            if not self.validate_token(token):
-                return False
-            
-            # تشفير الرمز قبل حفظه (مكن استخدام مكتبة cryptography)
-            # هذا مثال بسيط، يفضل استخدام تشفير أقوى
-            encoded_token = base64.b64encode(token.encode()).decode()
-            
-            settings = {
-                'github_token': encoded_token,
-                'last_validated': datetime.now().isoformat()
-            }
-            
-            settings_path = os.path.join(os.path.dirname(__file__), 'secure_settings.json')
-            with open(settings_path, 'w', encoding='utf-8') as f:
-                json.dump(settings, f, ensure_ascii=False, indent=4)
-            
-            return True
-        except Exception as e:
-            QMessageBox.critical(self, "خطأ", 
-                f"فشل حفظ الرمز:\n{str(e)}"
-            )
-            return False
+
 
     def show_store_extension_details(self, extension_data):
         """عرض تفاصيل الإضافة من المتجر"""
@@ -2114,7 +2100,7 @@ class ExtensionManagerDialog(QMainWindow):
                     settings = json.load(f)
                     github_token = settings.get('extensions', {}).get('github_token')
                     if not github_token:
-                        raise Exception("لم يتم العثور على توكن GitHub في الإعدادات")
+                        raise Exception("لم يتم العثور على توكن جيت هاب في الإعدادات")
             except Exception as e:
                 raise Exception(f"خطأ في قراءة ملف الإعدادات: {str(e)}")
             
@@ -2136,7 +2122,7 @@ class ExtensionManagerDialog(QMainWindow):
                 manifest_content = manifest_response.json()
             except requests.exceptions.RequestException as e:
                 if manifest_response.status_code == 403:
-                    raise Exception("خطأ في الوصول: تأكد من صلاحية توكن GitHub")
+                    raise Exception("خطأ في الوصول: تأكد من صلاحية توكن جيت هاب")
                 elif manifest_response.status_code == 404:
                     raise Exception("لم يتم العثور على ملف manifest.json")
                 else:
@@ -2284,6 +2270,13 @@ class ExtensionManagerDialog(QMainWindow):
     def validate_token(self, token):
         """التحقق من صلاحية الرمز"""
         try:
+            # إظهار شريط التقدم
+            progress = QProgressDialog("جاري التحقق من الرمز...", None, 0, 0, self)
+            progress.setWindowTitle("التحقق من الرمز")
+            progress.setWindowModality(Qt.WindowModal)
+            progress.setCancelButton(None)
+            progress.show()
+
             headers = {
                 'Authorization': f'token {token}',
                 'Accept': 'application/vnd.github.v3+json'
@@ -2299,37 +2292,14 @@ class ExtensionManagerDialog(QMainWindow):
                 )
             return False
         except Exception as e:
-            QMessageBox.critical(self, "خطأ", 
-                f"حدث خطأ في التحقق من الرمز:\n{str(e)}"
+            QMessageBox.critical(
+                self, 
+                "خطأ", 
+                f"❌ حدث خطأ أثناء اختبار الرمز:\n{str(e)}"
             )
             return False
-
-    def save_token(self, token):
-        """حفظ الرمز بشكل آمن"""
-        try:
-            # التحقق من صلاحية الرمز قبل حفظه
-            if not self.validate_token(token):
-                return False
-            
-            # تشفير الرمز قبل حفظه (مكن استخدام مكتبة cryptography)
-            # هذا مثال بسيط، يفضل استخدام تشفير أقوى
-            encoded_token = base64.b64encode(token.encode()).decode()
-            
-            settings = {
-                'github_token': encoded_token,
-                'last_validated': datetime.now().isoformat()
-            }
-            
-            settings_path = os.path.join(os.path.dirname(__file__), 'secure_settings.json')
-            with open(settings_path, 'w', encoding='utf-8') as f:
-                json.dump(settings, f, ensure_ascii=False, indent=4)
-            
-            return True
-        except Exception as e:
-            QMessageBox.critical(self, "خطأ", 
-                f"فشل حفظ الرمز:\n{str(e)}"
-            )
-            return False
+        finally:
+            progress.close()
 
     def show_store_extension_details(self, extension_data):
         """عرض تفاصيل الإضافة من المتجر"""
@@ -2548,7 +2518,21 @@ class ExtensionsManager:
         self.active_extensions = {}
         self.disabled_extensions = set()
         self.incompatible_extensions = set()
-        self.app_version = getattr(editor, 'app_version', '1.0.0')
+        
+        # إعداد التسجيل باللغة العربية
+        setup_arabic_logging()
+        self.logger = logging.getLogger('ExtensionsManager')
+        
+        # قراءة الإصدار من ملف الإعدادات
+        settings_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'settings.json')
+        try:
+            with open(settings_path, 'r', encoding='utf-8') as f:
+                settings = json.load(f)
+                self.app_version = settings.get('app_version', '1.0.0')
+        except Exception as e:
+            self.logger.error(f"خطأ في قراءة الإصدار من ملف الإعدادات: {str(e)}")
+            self.app_version = '1.0.0'
+        
         self.platform = self.get_current_platform()
         self.file_access_restrictions = False
         self.network_restrictions = False
@@ -2556,26 +2540,45 @@ class ExtensionsManager:
         self.monitoring_enabled = False
         self.extensions_menu = None
         
+        # إنشاء مجلد الإضافات إذا لم يكن موجوداً
         self.extensions_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'extensions')
         if not os.path.exists(self.extensions_dir):
             os.makedirs(self.extensions_dir)
         
-        # إعداد التسجيل باللغة العربية
-        setup_arabic_logging()
-        self.logger = logging.getLogger('ExtensionsManager')
-        
+        # تحميل الإعدادات وإعداد التوكن
         self.load_extension_settings()
+        self.github_token = self.get_github_token()
+        
+        # اكتشاف وتحميل الإضافات
         self.discover_extensions()
         self.load_active_extensions()
         self.setup_menu()
-        
+
+    def get_github_token(self):
+        """الحصول على توكن جيت هاب من الإعدادات"""
+        try:
+            settings_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'settings.json')
+            if os.path.exists(settings_path):
+                with open(settings_path, 'r', encoding='utf-8') as f:
+                    settings = json.load(f)
+                    return settings.get('extensions', {}).get('github_token', '')
+        except Exception as e:
+            self.logger.error(f"خطأ في قراءة توكن جيت هاب: {str(e)}")
+        return ''
+
     def log_message(self, message, level="INFO"):
         """تسجيل رسالة في ملف السجل"""
         try:
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             log_entry = f"{timestamp} - ExtensionsManager - {level} - {message}\n"
             
-            with open('سجلات.log', 'a', encoding='utf-8') as f:
+            # إنشاء مجلد السجلات إذا لم يكن موجوداً
+            log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'سجلات')
+            os.makedirs(log_dir, exist_ok=True)
+            
+            # كتابة السجل في الملف الصحيح
+            log_path = os.path.join(log_dir, 'سجلات.log')
+            with open(log_path, 'a', encoding='utf-8') as f:
                 f.write(log_entry)
         except Exception as e:
             print(f"خطأ في كتابة السجل: {str(e)}")

@@ -225,8 +225,16 @@ class TabManager(QTabWidget):
     def on_text_changed(self, editor):
         """معالجة تغيير النص في المحرر"""
         self.editor_text_changed.emit()
+        
         # تحديث نوع الملف عند تغيير المحتوى
         self.update_file_type(editor, self.file_paths.get(editor))
+        
+        # إضافة علامة * للملفات غير المحفوظة
+        if editor.document().isModified():
+            current_index = self.indexOf(editor.parent())
+            current_text = self.tabText(current_index)
+            if not current_text.endswith('*'):
+                self.setTabText(current_index, current_text + '*')
 
     def tab_changed(self, index):
         """معالجة تغيير التبويب النشط"""
@@ -683,7 +691,7 @@ class TabManager(QTabWidget):
                 # نسخ المحتوى
                 new_editor.setPlainText(editor.toPlainText())
                 
-                # نسخ ��سار الملف إذا كان موجوداً
+                # نسخ سار الملف إذا كان موجوداً
                 file_path = self.file_paths.get(editor)
                 if file_path:
                     new_name = f"نسخة من {os.path.basename(file_path)}"
@@ -728,4 +736,16 @@ class TabManager(QTabWidget):
         except Exception as e:
             log_in_arabic(logger, logging.ERROR, f"خطأ في الحصول على المحرر الحالي: {e}")
             return None
+
+    def update_tab_title(self, editor):
+        """تحديث عنوان التبويب بناءً على حالة الحفظ"""
+        current_index = self.indexOf(editor.parent())
+        if current_index >= 0:
+            current_text = self.tabText(current_index)
+            if editor.document().isModified():
+                if not current_text.endswith('*'):
+                    self.setTabText(current_index, current_text + '*')
+            else:
+                if current_text.endswith('*'):
+                    self.setTabText(current_index, current_text[:-1])
 

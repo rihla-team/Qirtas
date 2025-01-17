@@ -1,17 +1,16 @@
 {
-    "app_version": "1.0.1",
     "updates": {
         "auto_check": true,
         "check_interval": "يومياً",
-        "last_check": 1735138868.248522
+        "last_check": 1737131015.94975
     },
     "editor": {
         "auto_save": {
-            "enabled": true,
-            "interval": 30
+            "enabled": false,
+            "interval": 1
         },
-        "theme": "dark",
-        "word_wrap": true
+        "word_wrap": false,
+        "theme": "light"
     },
     "font": {
         "family": "Arial",
@@ -33,5 +32,6 @@
         "scroll_buttons": true,
         "elide_mode": "none",
         "max_closed_tabs": 10
-    }
+    },
+    "app_version": "1.0.0"
 }

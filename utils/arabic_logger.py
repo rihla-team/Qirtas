@@ -45,17 +45,15 @@ class ArabicFormatter(logging.Formatter):
         self.translations.update(new_translations)
 
 def get_log_path():
-    """تحديد مسار ملف السجلات"""
-    base_path = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.dirname(__file__))
-    
-    # إنشاء مجلد السجلات إذا لم يكن موجوداً
-    logs_dir = os.path.join(base_path, 'سجلات')
+    """الحصول على مسار ملف السجلات"""
     try:
-        os.makedirs(logs_dir, exist_ok=True)
+        # إنشاء مجلد السجلات في مجلد البرنامج
+        log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'سجلات')
+        os.makedirs(log_dir, exist_ok=True)
+        return os.path.join(log_dir, 'سجلات.log')
     except Exception:
-        return os.path.join(base_path, 'سجلات.log')
-        
-    return os.path.join(logs_dir, 'سجلات.log')
+        # إذا فشل إنشاء المجلد، استخدم المجلد المؤقت
+        return os.path.join(tempfile.gettempdir(), 'سجلات.log')
 
 class LogCompressor:
     """نظام ضغط وإدارة ملفات السجل"""
